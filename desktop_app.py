@@ -630,22 +630,26 @@ class ClaimForensicModal(ctk.CTkToplevel):
         self.clm = claim_data
         self.claim_num = claim_number
 
-        # Center window on screen
+        # Center window reliably on screen
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
-        w = min(1040, sw - 40)
-        h = min(860, sh - 60)
-        x = max(20, (sw - w) // 2)
-        y = max(30, (sh - h) // 2)
+        w = min(1040, max(800, sw - 80))
+        h = min(840, max(560, sh - 100))
+        x = max(30, (sw - w) // 2)
+        y = max(40, (sh - h) // 2)
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.minsize(800, 540)
+        self.minsize(780, 520)
         self.title(f"TRUVI-EV Forensic Deep Inspection • Claim #{self.claim_num}")
         self.configure(fg_color="#070a13")
 
-        # Topmost window without transient (prevents disappearing on parent focus)
-        self.attributes("-topmost", True)
+        # Stable macOS Cocoa window hierarchy: transient without aggressive topmost
+        try:
+            self.transient(parent_app)
+        except Exception:
+            pass
+        self.deiconify()
         self.lift()
-        self.focus_force()
+        self.after(100, lambda: self.focus())
 
         # Handle window closure cleanly
         self.protocol("WM_DELETE_WINDOW", self._close_modal)
@@ -654,9 +658,11 @@ class ClaimForensicModal(ctk.CTkToplevel):
         self._build_modal_ui()
 
     def _close_modal(self):
-        if hasattr(self.parent_app, "active_forensic_modal") and self.parent_app.active_forensic_modal is self:
-            self.parent_app.active_forensic_modal = None
         try:
+            if hasattr(self.parent_app, "open_forensic_modals"):
+                self.parent_app.open_forensic_modals.pop(self.claim_num, None)
+            if hasattr(self.parent_app, "active_forensic_modal") and self.parent_app.active_forensic_modal is self:
+                self.parent_app.active_forensic_modal = None
             self.destroy()
         except Exception:
             pass
@@ -1219,12 +1225,15 @@ class TRUVIApp(ctk.CTk):
         self.active_result = None
         self.session_history: List[Dict[str, Any]] = []
 
-        # Clipboard State
+        # UI & Modal States
         self.clipboard_enabled = True
         self.last_clipboard_text = ""
         self.is_verifying = False
         self.active_popup: Optional[FloatingHUDNotification] = None
         self.active_forensic_modal: Optional[ClaimForensicModal] = None
+        self.open_forensic_modals: Dict[int, ClaimForensicModal] = {}
+        self.toast_frame = None
+        self.toast_after_id = None
         self.clipboard_thread = None
         self._last_modal_time = 0.0
 
@@ -1303,6 +1312,67 @@ class TRUVIApp(ctk.CTk):
     # =========================================================================
     # Header & Tab Navigation
     # =========================================================================
+    def show_toast(self, message: str, icon: str = "✓", color: str = "#10b981"):
+        """Displays a floating modern Toast notification that smoothly appears and dismisses."""
+        if hasattr(self, "toast_frame") and self.toast_frame is not None:
+            try:
+                if hasattr(self, "toast_after_id") and self.toast_after_id:
+                    self.after_cancel(self.toast_after_id)
+                self.toast_frame.destroy()
+            except Exception:
+                pass
+            self.toast_frame = None
+
+        self.toast_frame = ctk.CTkFrame(
+            self,
+            fg_color="#071322",
+            border_color=color,
+            border_width=1.5,
+            corner_radius=12,
+            height=40
+        )
+        self.toast_frame.place(relx=0.5, rely=0.075, anchor="center")
+
+        t_inner = ctk.CTkFrame(self.toast_frame, fg_color="transparent")
+        t_inner.pack(padx=16, pady=6)
+
+        t_icon = ctk.CTkLabel(
+            t_inner,
+            text=f" {icon} ",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=color
+        )
+        t_icon.pack(side="left", padx=(0, 6))
+
+        t_msg = ctk.CTkLabel(
+            t_inner,
+            text=message,
+            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
+            text_color="#f8fafc"
+        )
+        t_msg.pack(side="left")
+
+        def _dismiss():
+            if hasattr(self, "toast_frame") and self.toast_frame is not None:
+                try:
+                    self.toast_frame.destroy()
+                except Exception:
+                    pass
+                self.toast_frame = None
+
+        self.toast_after_id = self.after(2000, _dismiss)
+
+    def _animate_status_pulse(self):
+        """Subtle glowing pulse on the engine status pill."""
+        if hasattr(self, "pulse_lbl") and self.pulse_lbl.winfo_exists():
+            try:
+                cur_col = self.pulse_lbl.cget("text_color")
+                new_col = "#10b981" if cur_col == "#34d399" else "#34d399"
+                self.pulse_lbl.configure(text_color=new_col)
+            except Exception:
+                pass
+        self.after(1600, self._animate_status_pulse)
+
     def _build_header(self):
         header = ctk.CTkFrame(
             self,
@@ -1314,15 +1384,29 @@ class TRUVIApp(ctk.CTk):
         )
         header.pack(fill="x", padx=20, pady=(14, 6))
 
-        # Left: Traffic Light Dots + Brand
+        # Left: Branded High-Tech Core Icon & Identity (No fake OS buttons!)
         left_box = ctk.CTkFrame(header, fg_color="transparent")
         left_box.pack(side="left", padx=16, pady=10)
 
-        dots = ctk.CTkFrame(left_box, fg_color="transparent")
-        dots.pack(side="left", padx=(0, 14))
-        for color in ["#ff5f56", "#ffbd2e", "#27c93f"]:
-            dot = ctk.CTkLabel(dots, text="●", text_color=color, font=ctk.CTkFont(size=11))
-            dot.pack(side="left", padx=2)
+        logo_box = ctk.CTkFrame(
+            left_box,
+            fg_color="#08182b",
+            border_color="#0284c7",
+            border_width=1.5,
+            corner_radius=10,
+            width=40,
+            height=40
+        )
+        logo_box.pack(side="left", padx=(0, 12))
+        logo_box.pack_propagate(False)
+
+        logo_icon = ctk.CTkLabel(
+            logo_box,
+            text="◈",
+            font=ctk.CTkFont(family="SF Pro Display", size=22, weight="bold"),
+            text_color="#38bdf8"
+        )
+        logo_icon.place(relx=0.5, rely=0.5, anchor="center")
 
         title_box = ctk.CTkFrame(left_box, fg_color="transparent")
         title_box.pack(side="left")
@@ -1333,30 +1417,43 @@ class TRUVIApp(ctk.CTk):
         title = ctk.CTkLabel(
             title_row,
             text="TRUVI-EV",
-            font=ctk.CTkFont(family="SF Pro Display", size=18, weight="bold"),
+            font=ctk.CTkFont(family="SF Pro Display", size=19, weight="bold"),
             text_color=COLOR_TEXT_PRIMARY
         )
         title.pack(side="left", padx=(0, 8))
 
         ver_badge = ctk.CTkLabel(
             title_row,
-            text="STUDIO 2.0",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            text="STUDIO PRO",
+            font=ctk.CTkFont(family="SF Pro Display", size=10, weight="bold"),
             text_color="#38bdf8",
-            fg_color="#0f253d",
+            fg_color="#0c233c",
             corner_radius=6,
-            padx=6,
+            padx=7,
             pady=2
         )
-        ver_badge.pack(side="left")
+        ver_badge.pack(side="left", padx=(0, 8))
+
+        self.pulse_lbl = ctk.CTkLabel(
+            title_row,
+            text="● ENGINE ACTIVE",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#34d399",
+            fg_color="#04261a",
+            corner_radius=6,
+            padx=7,
+            pady=2
+        )
+        self.pulse_lbl.pack(side="left")
+        self.after(1600, self._animate_status_pulse)
 
         subtitle = ctk.CTkLabel(
             title_box,
-            text="Autonomous Evidence-Aware Neural Fact Verification Engine",
-            font=ctk.CTkFont(size=11),
+            text="Reliability-Gated Neural Hallucination Detection & Evidence Synthesis",
+            font=ctk.CTkFont(family="SF Pro Display", size=11),
             text_color=COLOR_TEXT_MUTED
         )
-        subtitle.pack(anchor="w")
+        subtitle.pack(anchor="w", pady=(2, 0))
 
         # Right: Badges, Test Popup, & Clipboard Auto-Verify Switch
         right_box = ctk.CTkFrame(header, fg_color="transparent")
@@ -1545,7 +1642,7 @@ class TRUVIApp(ctk.CTk):
                 border_color="#1d2e4a",
                 border_width=1,
                 corner_radius=8,
-                command=lambda c=claim_val: self._load_example(c)
+                command=lambda c=claim_val, l=label_text: self._load_example(c, l)
             )
             btn.pack(side="left", padx=4)
 
@@ -1698,10 +1795,12 @@ class TRUVIApp(ctk.CTk):
     # =========================================================================
     # Verification Actions & Rendering
     # =========================================================================
-    def _load_example(self, claim_text: str):
+    def _load_example(self, claim_text: str, label_name: str = ""):
         self.text_input.delete("1.0", "end")
         self.text_input.insert("1.0", claim_text)
         self._update_input_telemetry()
+        if label_name:
+            self.show_toast(f"Preset loaded: {label_name}", icon="⚡", color="#38bdf8")
         self._on_verify_clicked()
 
     def _clear_input(self):
@@ -2074,7 +2173,7 @@ class TRUVIApp(ctk.CTk):
                 else:
                     sc_fg, sc_bg, sc_ic = COLOR_UNVERIFIED_TEXT, COLOR_UNVERIFIED_BG, "⚠"
 
-                sc_card = ctk.CTkFrame(sub_frame, fg_color="#101726", corner_radius=8)
+                sc_card = ctk.CTkFrame(sub_frame, fg_color="#101726", border_color="#1e2c45", border_width=1, corner_radius=8)
                 sc_card.pack(fill="x", padx=14, pady=4)
 
                 top_sc = ctk.CTkFrame(sc_card, fg_color="transparent")
@@ -2093,25 +2192,40 @@ class TRUVIApp(ctk.CTk):
                 clm_lbl = ctk.CTkLabel(
                     top_sc,
                     text=sc.get("claim", ""),
-                    font=ctk.CTkFont(size=12, weight="bold"),
+                    font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
                     text_color=COLOR_TEXT_PRIMARY,
-                    wraplength=640,
+                    wraplength=520,
                     justify="left"
                 )
                 clm_lbl.pack(side="left", padx=10)
 
-                sc_inspect_btn = ctk.CTkButton(
-                    top_sc,
-                    text="🔬 Inspect",
-                    width=75,
+                sc_btn_box = ctk.CTkFrame(top_sc, fg_color="transparent")
+                sc_btn_box.pack(side="right")
+
+                sc_win_btn = ctk.CTkButton(
+                    sc_btn_box,
+                    text="↗ Popout",
+                    width=70,
                     height=24,
-                    fg_color="#1e293b",
-                    hover_color=COLOR_ACCENT_PRIMARY,
-                    text_color="#38bdf8",
-                    font=ctk.CTkFont(size=11, weight="bold"),
+                    fg_color="#141f33",
+                    hover_color=COLOR_ACCENT_HOVER,
+                    text_color="#94a3b8",
+                    font=ctk.CTkFont(size=10, weight="bold"),
                     command=lambda c=sc, n=sc_idx+1: self._open_claim_forensic_dossier(c, n)
                 )
-                sc_inspect_btn.pack(side="right")
+                sc_win_btn.pack(side="right", padx=(4, 0))
+
+                sc_toggle_btn = ctk.CTkButton(
+                    sc_btn_box,
+                    text="🔬 Details ▼",
+                    width=90,
+                    height=24,
+                    fg_color="#182740",
+                    hover_color=COLOR_ACCENT_HOVER,
+                    text_color="#38bdf8",
+                    font=ctk.CTkFont(size=10, weight="bold")
+                )
+                sc_toggle_btn.pack(side="right")
 
                 sub_rsn = ctk.CTkLabel(
                     sc_card,
@@ -2123,13 +2237,21 @@ class TRUVIApp(ctk.CTk):
                 )
                 sub_rsn.pack(anchor="w", padx=12, pady=(0, 6))
 
-                # Safe card click
-                sc_card.bind("<Button-1>", lambda e, c=sc, n=sc_idx+1: self._handle_card_click(e, c, n))
-                clm_lbl.bind("<Button-1>", lambda e, c=sc, n=sc_idx+1: self._handle_card_click(e, c, n))
+                # Expandable Forensic Frame
+                sc_detail = ctk.CTkFrame(sc_card, fg_color="#080e1a", border_color="#1e2c45", border_width=1, corner_radius=6)
+                self._populate_in_card_forensics(sc_detail, sc, sc_idx+1)
 
-                # Hover highlight on sub-card
-                sc_card.bind("<Enter>", lambda e, card=sc_card: card.configure(fg_color="#18233a"))
-                sc_card.bind("<Leave>", lambda e, card=sc_card: card.configure(fg_color="#101726"))
+                def _make_sc_toggle(f, b):
+                    def _do_sc_toggle():
+                        if f.winfo_ismapped():
+                            f.pack_forget()
+                            b.configure(text="🔬 Details ▼", text_color="#38bdf8")
+                        else:
+                            f.pack(fill="x", padx=12, pady=(0, 8))
+                            b.configure(text="▲ Collapse", text_color="#f59e0b")
+                    return _do_sc_toggle
+
+                sc_toggle_btn.configure(command=_make_sc_toggle(sc_detail, sc_toggle_btn))
 
             ctk.CTkLabel(sub_frame, text="").pack(pady=2)
 
@@ -2411,90 +2533,98 @@ class TRUVIApp(ctk.CTk):
             )
             comp_badge.pack(side="left", padx=(8, 0))
 
-            # Click-to-inspect button
-            inspect_btn = ctk.CTkButton(
-                top,
-                text="🔬 Inspect Forensic Dossier →",
+            # Action Buttons on Right
+            btn_box = ctk.CTkFrame(top, fg_color="transparent")
+            btn_box.pack(side="right")
+
+            # Dedicated Modal Window Button
+            win_btn = ctk.CTkButton(
+                btn_box,
+                text="↗ Popout Window",
                 height=26,
+                width=110,
+                fg_color="#141f33",
+                hover_color=COLOR_ACCENT_HOVER,
+                text_color="#94a3b8",
+                border_color="#22334d",
+                border_width=1,
+                corner_radius=6,
+                font=ctk.CTkFont(size=10, weight="bold"),
+                command=lambda c=clm, n=idx+1: self._open_claim_forensic_dossier(c, n)
+            )
+            win_btn.pack(side="right", padx=(6, 0))
+
+            # Accordion Toggle Button
+            toggle_btn = ctk.CTkButton(
+                btn_box,
+                text="🔬 Forensic Details ▼",
+                height=26,
+                width=135,
                 fg_color="#182740",
                 hover_color=COLOR_ACCENT_HOVER,
                 text_color="#38bdf8",
                 border_color="#2b3e5f",
                 border_width=1,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                command=lambda c=clm, n=idx+1: self._open_claim_forensic_dossier(c, n)
+                corner_radius=6,
+                font=ctk.CTkFont(size=11, weight="bold")
             )
-            inspect_btn.pack(side="right")
+            toggle_btn.pack(side="right")
 
             clm_text_lbl = ctk.CTkLabel(
                 item,
                 text=clm.get("claim", ""),
-                font=ctk.CTkFont(size=13, weight="bold"),
+                font=ctk.CTkFont(family="SF Pro Display", size=13, weight="bold"),
                 text_color=COLOR_TEXT_PRIMARY,
                 wraplength=940,
                 justify="left"
             )
-            clm_text_lbl.pack(anchor="w", padx=14, pady=(2, 2))
+            clm_text_lbl.pack(anchor="w", padx=14, pady=(2, 6))
 
-            # Click hint
-            hint_lbl = ctk.CTkLabel(
-                item,
-                text="👆 Click anywhere on this card to open persistent deep forensic evidence inspection",
-                font=ctk.CTkFont(size=10, slant="italic"),
-                text_color="#64748b"
-            )
-            hint_lbl.pack(anchor="w", padx=14, pady=(0, 6))
+            # Quick summary bar (if contradicted, show refutation and right statement with copy)
+            resrc = clm.get("proving_resource", {}) or {}
+            r_stmt = clm.get("right_statement", "")
+            if c_v == "CONTRADICTED" and (resrc or r_stmt):
+                quick_box = ctk.CTkFrame(item, fg_color="#170d1a", border_color="#3b1d28", border_width=1, corner_radius=8)
+                quick_box.pack(fill="x", padx=14, pady=(0, 6))
+                qb_inner = ctk.CTkFrame(quick_box, fg_color="transparent")
+                qb_inner.pack(fill="x", padx=10, pady=6)
 
-            # Safe card click handlers that return break to prevent event bubbling
-            item.bind("<Button-1>", lambda e, c=clm, n=idx+1: self._handle_card_click(e, c, n))
-            clm_text_lbl.bind("<Button-1>", lambda e, c=clm, n=idx+1: self._handle_card_click(e, c, n))
-            hint_lbl.bind("<Button-1>", lambda e, c=clm, n=idx+1: self._handle_card_click(e, c, n))
-
-            # Hover highlight
-            def _bind_hover(target_frame, base_border):
-                target_frame.bind("<Enter>", lambda e: target_frame.configure(border_color=COLOR_ACCENT_CYAN, fg_color="#0e1726"))
-                target_frame.bind("<Leave>", lambda e: target_frame.configure(border_color=base_border, fg_color="#0a101d"))
-            _bind_hover(item, c_border)
-
-            # If contradicted, render explicit correction breakdown
-            if c_v == "CONTRADICTED":
-                resrc = clm.get("proving_resource", {}) or {}
-                r_stmt = clm.get("right_statement", "")
-
-                forensic_frame = ctk.CTkFrame(item, fg_color="#120c18", corner_radius=8)
-                forensic_frame.pack(fill="x", padx=14, pady=(0, 8))
-
-                f_box = ctk.CTkFrame(forensic_frame, fg_color="transparent")
-                f_box.pack(fill="x", padx=10, pady=8)
-
-                src_lbl = ctk.CTkLabel(
-                    f_box,
-                    text=f"🏛️ Proved False by: {resrc.get('source', 'Authoritative Source')} ({resrc.get('authority_pct', '99%')} Authority)",
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    text_color="#38bdf8"
-                )
-                src_lbl.pack(anchor="w")
-
-                ev_lbl = ctk.CTkLabel(
-                    f_box,
-                    text=f'Evidence: "{resrc.get("evidence_text", "")}"',
-                    font=ctk.CTkFont(size=11, slant="italic"),
-                    text_color="#94a3b8",
-                    wraplength=910,
-                    justify="left"
-                )
-                ev_lbl.pack(anchor="w", pady=(1, 4))
+                if resrc:
+                    q_src = ctk.CTkLabel(
+                        qb_inner,
+                        text=f"🏛️ Refuted by: {resrc.get('source', 'Authoritative Evidence')} ({resrc.get('authority_pct', '99%')} Authority)",
+                        font=ctk.CTkFont(size=11, weight="bold"),
+                        text_color="#38bdf8"
+                    )
+                    q_src.pack(anchor="w")
 
                 if r_stmt:
-                    right_lbl = ctk.CTkLabel(
-                        f_box,
+                    q_row = ctk.CTkFrame(qb_inner, fg_color="transparent")
+                    q_row.pack(fill="x", pady=(2, 0))
+
+                    q_stmt = ctk.CTkLabel(
+                        q_row,
                         text=f'🟢 Right Statement: "{r_stmt}"',
-                        font=ctk.CTkFont(size=12, weight="bold"),
+                        font=ctk.CTkFont(size=11, weight="bold"),
                         text_color="#34d399",
-                        wraplength=910,
+                        wraplength=820,
                         justify="left"
                     )
-                    right_lbl.pack(anchor="w")
+                    q_stmt.pack(side="left", anchor="w")
+
+                    q_copy = ctk.CTkButton(
+                        q_row,
+                        text="📋 Copy",
+                        height=22,
+                        width=55,
+                        fg_color="#064e3b",
+                        hover_color="#059669",
+                        text_color="#ffffff",
+                        font=ctk.CTkFont(size=10, weight="bold"),
+                        corner_radius=5,
+                        command=lambda s=r_stmt: self._copy_text_to_clipboard(s, "Right Statement Copied!")
+                    )
+                    q_copy.pack(side="right")
             else:
                 rsn_lbl = ctk.CTkLabel(
                     item,
@@ -2504,42 +2634,243 @@ class TRUVIApp(ctk.CTk):
                     wraplength=940,
                     justify="left"
                 )
-                rsn_lbl.pack(anchor="w", padx=14, pady=(0, 10))
+                rsn_lbl.pack(anchor="w", padx=14, pady=(0, 6))
 
-    def _handle_card_click(self, event, claim_data: Dict[str, Any], claim_number: int = 1):
-        """Card click handler with event bubbling suppression."""
-        self._open_claim_forensic_dossier(claim_data, claim_number)
-        return "break"
+            # Expandable In-Card Forensic Details Frame (Initially collapsed)
+            detail_frame = ctk.CTkFrame(item, fg_color="#080e1a", border_color="#1e2c45", border_width=1, corner_radius=8)
+            self._populate_in_card_forensics(detail_frame, clm, idx+1)
+
+            def _make_toggle(f, b):
+                def _do_toggle():
+                    if f.winfo_ismapped():
+                        f.pack_forget()
+                        b.configure(text="🔬 Forensic Details ▼", text_color="#38bdf8")
+                    else:
+                        f.pack(fill="x", padx=14, pady=(0, 10))
+                        b.configure(text="▲ Collapse Details", text_color="#f59e0b")
+                return _do_toggle
+
+            toggle_btn.configure(command=_make_toggle(detail_frame, toggle_btn))
+
+    def _populate_in_card_forensics(self, container, clm: Dict[str, Any], claim_num: int):
+        """Populates rich forensic breakdown and evidence proof directly inside the claim card."""
+        f_inner = ctk.CTkFrame(container, fg_color="transparent")
+        f_inner.pack(fill="x", padx=14, pady=12)
+
+        c_v = clm.get("verdict", "UNVERIFIED")
+        resrc = clm.get("proving_resource", {}) or {}
+        r_stmt = clm.get("right_statement", "")
+        c_part = clm.get("contradicted_part", "")
+        signals = clm.get("signals", {}) or {}
+
+        # 1. Contradiction Forensics Block (if contradicted)
+        if c_v == "CONTRADICTED":
+            contra_card = ctk.CTkFrame(f_inner, fg_color="#180b15", border_color=COLOR_CONTRADICTED_BORDER, border_width=1, corner_radius=8)
+            contra_card.pack(fill="x", pady=(0, 10))
+
+            cc_inner = ctk.CTkFrame(contra_card, fg_color="transparent")
+            cc_inner.pack(fill="x", padx=12, pady=10)
+
+            c_hdr = ctk.CTkLabel(
+                cc_inner,
+                text="🚨 FORENSIC CONTRADICTION BREAKDOWN",
+                font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+                text_color=COLOR_CONTRADICTED_TEXT
+            )
+            c_hdr.pack(anchor="w", pady=(0, 4))
+
+            if c_part:
+                c_part_box = ctk.CTkFrame(cc_inner, fg_color="#2b0a14", corner_radius=6)
+                c_part_box.pack(fill="x", pady=(2, 6))
+                cp_lbl = ctk.CTkLabel(
+                    c_part_box,
+                    text=f'❌ False Assertion / Clause: "{c_part}"',
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    text_color="#fda4af",
+                    padx=10,
+                    pady=4,
+                    wraplength=880,
+                    justify="left"
+                )
+                cp_lbl.pack(anchor="w")
+
+            if resrc:
+                res_box = ctk.CTkFrame(cc_inner, fg_color="#0e1726", corner_radius=6)
+                res_box.pack(fill="x", pady=(2, 6))
+                rb_inner = ctk.CTkFrame(res_box, fg_color="transparent")
+                rb_inner.pack(fill="x", padx=10, pady=8)
+
+                src_auth = resrc.get("authority_pct", "99%")
+                src_name = resrc.get("source", "Authoritative Scientific Source")
+                src_dom = resrc.get("domain", "Scientific Consensus")
+
+                s_line = ctk.CTkLabel(
+                    rb_inner,
+                    text=f"🏛️ Refuted by: {src_name}  [{src_dom}]  •  {src_auth} Verified Authority",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="#38bdf8"
+                )
+                s_line.pack(anchor="w")
+
+                ev_quote = resrc.get("evidence_text", "")
+                if ev_quote:
+                    q_line = ctk.CTkLabel(
+                        rb_inner,
+                        text=f'📜 Evidence Proof: "{ev_quote}"',
+                        font=ctk.CTkFont(size=11, slant="italic"),
+                        text_color="#cbd5e1",
+                        wraplength=860,
+                        justify="left"
+                    )
+                    q_line.pack(anchor="w", pady=(4, 0))
+
+            if r_stmt:
+                rt_box = ctk.CTkFrame(cc_inner, fg_color="#04261a", border_color=COLOR_SUPPORTED_BORDER, border_width=1, corner_radius=6)
+                rt_box.pack(fill="x", pady=(4, 0))
+                rt_inner = ctk.CTkFrame(rt_box, fg_color="transparent")
+                rt_inner.pack(fill="x", padx=10, pady=8)
+
+                rt_hdr = ctk.CTkLabel(
+                    rt_inner,
+                    text="🟢 100% FACTUAL GROUND-TRUTH REPLACEMENT:",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    text_color=COLOR_SUPPORTED_TEXT
+                )
+                rt_hdr.pack(anchor="w")
+
+                rt_row = ctk.CTkFrame(rt_inner, fg_color="transparent")
+                rt_row.pack(fill="x", pady=(2, 0))
+
+                rt_txt = ctk.CTkLabel(
+                    rt_row,
+                    text=f'"{r_stmt}"',
+                    font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
+                    text_color="#34d399",
+                    wraplength=760,
+                    justify="left"
+                )
+                rt_txt.pack(side="left", anchor="w")
+
+                cp_btn = ctk.CTkButton(
+                    rt_row,
+                    text="📋 Copy",
+                    width=65,
+                    height=24,
+                    fg_color="#065f46",
+                    hover_color="#047857",
+                    text_color="#ffffff",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    corner_radius=6,
+                    command=lambda s=r_stmt: self._copy_text_to_clipboard(s, "Right Statement Copied!")
+                )
+                cp_btn.pack(side="right")
+
+        # 2. Mini 5-Signal Metrics Radar Row
+        sig_frame = ctk.CTkFrame(f_inner, fg_color="#0c1322", border_color="#1e2c45", border_width=1, corner_radius=8)
+        sig_frame.pack(fill="x", pady=(0, 8))
+
+        sig_inner = ctk.CTkFrame(sig_frame, fg_color="transparent")
+        sig_inner.pack(fill="x", padx=12, pady=8)
+
+        sig_title = ctk.CTkLabel(
+            sig_inner,
+            text="🔬 5-SIGNAL NEURAL RADAR TELEMETRY:",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#94a3b8"
+        )
+        sig_title.pack(anchor="w", pady=(0, 6))
+
+        m_row = ctk.CTkFrame(sig_inner, fg_color="transparent")
+        m_row.pack(fill="x")
+
+        metrics_items = [
+            ("DeBERTa Entailment", f"{signals.get('nli_entailment', 0.0):.1%}", "#34d399"),
+            ("DeBERTa Contradiction", f"{signals.get('nli_contradiction', 0.0):.1%}", "#fb7185"),
+            ("BGE Cosine Similarity", f"{signals.get('semantic_similarity', 0.0):.1%}", "#38bdf8"),
+            ("Source Authority", f"{signals.get('source_reliability', 0.85):.1%}", "#a78bfa"),
+            ("Evidence Consensus", f"{signals.get('evidence_agreement', 0.85):.1%}", "#fcd34d"),
+        ]
+
+        for m_name, m_val, m_col in metrics_items:
+            m_cell = ctk.CTkFrame(m_row, fg_color="#10192d", corner_radius=6)
+            m_cell.pack(side="left", fill="x", expand=True, padx=3)
+            ctk.CTkLabel(m_cell, text=m_name, font=ctk.CTkFont(size=9), text_color="#64748b").pack(pady=(4, 1))
+            ctk.CTkLabel(m_cell, text=m_val, font=ctk.CTkFont(size=12, weight="bold"), text_color=m_col).pack(pady=(0, 4))
+
+        # 3. Action bar at bottom of accordion
+        bot_act = ctk.CTkFrame(f_inner, fg_color="transparent")
+        bot_act.pack(fill="x", pady=(4, 0))
+
+        dossier_text = f"Claim #{claim_num}: {clm.get('claim', '')}\nVerdict: {c_v} ({clm.get('confidence_pct', '')})\n"
+        if r_stmt:
+            dossier_text += f"Verified Ground Truth: {r_stmt}\n"
+        if resrc:
+            dossier_text += f"Refuted by: {resrc.get('source')} ({resrc.get('authority_pct')})\nEvidence: {resrc.get('evidence_text')}\n"
+
+        cp_dos_btn = ctk.CTkButton(
+            bot_act,
+            text="📋 Copy Forensic Dossier",
+            height=26,
+            fg_color="#182740",
+            hover_color=COLOR_ACCENT_HOVER,
+            text_color="#cbd5e1",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            corner_radius=6,
+            command=lambda dt=dossier_text: self._copy_text_to_clipboard(dt, "Forensic Dossier Copied!")
+        )
+        cp_dos_btn.pack(side="left")
+
+        pop_dos_btn = ctk.CTkButton(
+            bot_act,
+            text="↗ Open in Dedicated Modal Window",
+            height=26,
+            fg_color="#101b2d",
+            hover_color="#1e2d4a",
+            text_color="#38bdf8",
+            border_color="#1e2d4a",
+            border_width=1,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            corner_radius=6,
+            command=lambda c=clm, n=claim_num: self._open_claim_forensic_dossier(c, n)
+        )
+        pop_dos_btn.pack(side="left", padx=8)
 
     def _open_claim_forensic_dossier(self, claim_data: Dict[str, Any], claim_number: int = 1):
         """Opens the comprehensive deep forensic inspection modal for an atomic or compound claim."""
-        now = time.time()
-        if now - getattr(self, "_last_modal_time", 0) < 0.25:
-            return
-        self._last_modal_time = now
+        if not hasattr(self, "open_forensic_modals"):
+            self.open_forensic_modals = {}
 
-        # If modal already exists for this claim, lift and focus it instead of closing/recreating
-        if hasattr(self, "active_forensic_modal") and self.active_forensic_modal is not None:
+        existing = self.open_forensic_modals.get(claim_number)
+        if existing is not None:
             try:
-                if self.active_forensic_modal.winfo_exists():
-                    if getattr(self.active_forensic_modal, "claim_num", None) == claim_number:
-                        self.active_forensic_modal.lift()
-                        self.active_forensic_modal.focus_force()
-                        return
-                    self.active_forensic_modal.destroy()
+                if existing.winfo_exists():
+                    existing.deiconify()
+                    existing.lift()
+                    existing.focus()
+                    return
             except Exception:
                 pass
-            self.active_forensic_modal = None
+            self.open_forensic_modals.pop(claim_number, None)
 
-        self.active_forensic_modal = ClaimForensicModal(self, claim_data, claim_number)
+        modal = ClaimForensicModal(self, claim_data, claim_number)
+        self.open_forensic_modals[claim_number] = modal
 
-    def _copy_text_to_clipboard(self, text: str, success_msg: str = "Copied!"):
+    def _copy_text_to_clipboard(self, text: str, success_msg: str = "Copied to Clipboard!"):
+        if not text:
+            return
+        clean = text.strip()
         try:
-            if CLIPBOARD_AVAILABLE and text:
-                self.last_clipboard_text = text.strip()
-                pyperclip.copy(text)
+            if CLIPBOARD_AVAILABLE:
+                self.last_clipboard_text = clean
+                pyperclip.copy(clean)
         except Exception:
             pass
+        try:
+            subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
+            self.last_clipboard_text = clean
+        except Exception:
+            pass
+        self.show_toast(success_msg, icon="✓", color="#10b981")
 
     # =========================================================================
     # Tab 2: 📊 17-Signal Neural Radar View
@@ -2947,9 +3278,8 @@ class TRUVIApp(ctk.CTk):
             ])
 
         report_md = "\n".join(lines)
+        self._copy_text_to_clipboard(report_md, "Audit Report Copied to Clipboard!")
         try:
-            if CLIPBOARD_AVAILABLE:
-                pyperclip.copy(report_md)
             self.copy_report_btn.configure(text="✓ Report Copied!", fg_color="#064e3b")
             self.after(1800, lambda: self.copy_report_btn.configure(text="📋 Copy Audit Report", fg_color="#141d2e"))
         except Exception:
