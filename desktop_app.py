@@ -658,6 +658,10 @@ class ClaimForensicModal(ctk.CTkToplevel):
         self.title(f"TRUVI-EV Forensic Deep Inspection • Claim #{self.claim_num}")
         self.configure(fg_color="#070a13")
 
+        self._responsive_labels = []
+        self._resize_timer = None
+        self.bind("<Configure>", self._on_modal_resize)
+
         # Stable macOS Cocoa window hierarchy: transient without aggressive topmost
         try:
             self.transient(parent_app)
@@ -672,6 +676,49 @@ class ClaimForensicModal(ctk.CTkToplevel):
         self.bind("<Escape>", lambda e: self._close_modal())
 
         self._build_modal_ui()
+
+    def _on_modal_resize(self, event):
+        if event.widget != self:
+            return
+        if self._resize_timer:
+            self.after_cancel(self._resize_timer)
+        self._resize_timer = self.after(50, self._apply_responsive_layout)
+
+    def _apply_responsive_layout(self):
+        try:
+            cur_w = self.winfo_width()
+            if cur_w < 300:
+                return
+            alive = []
+            for item in getattr(self, "_responsive_labels", []):
+                try:
+                    lbl_ref, pad = item
+                    if lbl_ref.winfo_exists():
+                        target_wrap = max(340, cur_w - pad)
+                        lbl_ref.configure(wraplength=target_wrap)
+                        alive.append((lbl_ref, pad))
+                except Exception:
+                    pass
+            self._responsive_labels = alive
+
+            if hasattr(self, "meta_lbl") and self.meta_lbl.winfo_exists():
+                if cur_w < 920:
+                    self.meta_lbl.configure(text=f"Conf: {getattr(self, 'conf_pct', '')} • {getattr(self, 'elapsed_ms', 100)}ms • {len(getattr(self, 'evidence', []))} Ev.")
+                else:
+                    self.meta_lbl.configure(text=f"Confidence: {getattr(self, 'conf_pct', '')}  •  Evaluated in {getattr(self, 'elapsed_ms', 100)}ms  •  {len(getattr(self, 'evidence', []))} Evidence Passages")
+        except Exception:
+            pass
+
+    def _register_responsive_label(self, label: ctk.CTkLabel, padding: int = 140):
+        if not hasattr(self, "_responsive_labels"):
+            self._responsive_labels = []
+        cur_w = self.winfo_width() if self.winfo_width() > 300 else 980
+        target = max(340, cur_w - padding)
+        try:
+            label.configure(wraplength=target)
+            self._responsive_labels.append((label, padding))
+        except Exception:
+            pass
 
     def _close_modal(self):
         try:
@@ -779,13 +826,16 @@ class ClaimForensicModal(ctk.CTkToplevel):
         )
         b_pill.pack(side="left")
 
-        meta_lbl = ctk.CTkLabel(
+        self.conf_pct = conf_pct
+        self.elapsed_ms = elapsed_ms
+        self.evidence = evidence
+        self.meta_lbl = ctk.CTkLabel(
             h_top,
             text=f"Confidence: {conf_pct}  •  Evaluated in {elapsed_ms}ms  •  {len(evidence)} Evidence Passages",
             font=ctk.CTkFont(size=11),
             text_color=COLOR_TEXT_MUTED
         )
-        meta_lbl.pack(side="right")
+        self.meta_lbl.pack(side="right")
 
         # Original Evaluated Claim Box
         clm_box = ctk.CTkFrame(h_inner, fg_color="#060913", corner_radius=10)
@@ -804,9 +854,9 @@ class ClaimForensicModal(ctk.CTkToplevel):
             text=f'"{claim_text}"',
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#f8fafc",
-            wraplength=920,
             justify="left"
         )
+        self._register_responsive_label(clm_box_text, 140)
         clm_box_text.pack(anchor="w", padx=14, pady=(0, 12))
 
         # 2. FINE-GRAINED FACTUALITY & HALLUCINATION DECOMPOSITION METERS
@@ -863,14 +913,15 @@ class ClaimForensicModal(ctk.CTkToplevel):
         if short_reason:
             narr_box = ctk.CTkFrame(m_inner, fg_color="#060913", corner_radius=8)
             narr_box.pack(fill="x", pady=(6, 0))
-            ctk.CTkLabel(
+            sr_lbl = ctk.CTkLabel(
                 narr_box,
                 text=f"Summary: {short_reason}",
                 font=ctk.CTkFont(size=11),
                 text_color="#cbd5e1",
-                wraplength=920,
                 justify="left"
-            ).pack(anchor="w", padx=12, pady=8)
+            )
+            self._register_responsive_label(sr_lbl, 140)
+            sr_lbl.pack(anchor="w", padx=12, pady=8)
 
         # 3. 100% NON-HALLUCINATED GROUND-TRUTH CORRECTION (IF CONTRADICTED)
         if right_statement and (verdict == "CONTRADICTED" or hallucination_score > 0):
@@ -911,14 +962,15 @@ class ClaimForensicModal(ctk.CTkToplevel):
             rt_box = ctk.CTkFrame(c_inner, fg_color="#021a12", corner_radius=8)
             rt_box.pack(fill="x", pady=(2, 6))
 
-            ctk.CTkLabel(
+            rt_lbl = ctk.CTkLabel(
                 rt_box,
                 text=f'"{right_statement}"',
                 font=ctk.CTkFont(size=13, weight="bold"),
                 text_color="#f8fafc",
-                wraplength=920,
                 justify="left"
-            ).pack(anchor="w", padx=14, pady=12)
+            )
+            self._register_responsive_label(rt_lbl, 140)
+            rt_lbl.pack(anchor="w", padx=14, pady=12)
 
             ctk.CTkLabel(
                 c_inner,
@@ -991,14 +1043,15 @@ class ClaimForensicModal(ctk.CTkToplevel):
                     font=ctk.CTkFont(size=11, weight="bold")
                 ).pack(side="left")
 
-                ctk.CTkLabel(
+                sa_lbl = ctk.CTkLabel(
                     sa_b_inner,
                     text=f'"{sa_txt}"',
                     font=ctk.CTkFont(size=12, weight="bold"),
                     text_color="#ffffff",
-                    wraplength=890,
                     justify="left"
-                ).pack(anchor="w", pady=(0, 6))
+                )
+                self._register_responsive_label(sa_lbl, 140)
+                sa_lbl.pack(anchor="w", pady=(0, 6))
 
                 if sa_v == "CONTRADICTED":
                     sub_f = ctk.CTkFrame(sa_b_inner, fg_color="#170c14", corner_radius=6)
@@ -1007,14 +1060,15 @@ class ClaimForensicModal(ctk.CTkToplevel):
                     sub_f_in.pack(fill="x", padx=10, pady=8)
 
                     if sa_c_part:
-                        ctk.CTkLabel(
+                        c_part_lbl = ctk.CTkLabel(
                             sub_f_in,
                             text=f'🔴 Refuted Element: "{sa_c_part}"',
                             font=ctk.CTkFont(size=11, weight="bold"),
                             text_color="#f87171",
-                            wraplength=870,
                             justify="left"
-                        ).pack(anchor="w")
+                        )
+                        self._register_responsive_label(c_part_lbl, 160)
+                        c_part_lbl.pack(anchor="w")
 
                     if sa_pr:
                         ctk.CTkLabel(
@@ -1025,37 +1079,40 @@ class ClaimForensicModal(ctk.CTkToplevel):
                         ).pack(anchor="w", pady=(2, 2))
 
                     if sa_ev_q:
-                        ctk.CTkLabel(
+                        ev_q_lbl = ctk.CTkLabel(
                             sub_f_in,
                             text=f'📄 Evidence Quote: "{sa_ev_q}"',
                             font=ctk.CTkFont(size=11, slant="italic"),
                             text_color="#cbd5e1",
-                            wraplength=870,
                             justify="left"
-                        ).pack(anchor="w", pady=(1, 4))
+                        )
+                        self._register_responsive_label(ev_q_lbl, 160)
+                        ev_q_lbl.pack(anchor="w", pady=(1, 4))
 
                     if sa_r_stmt:
-                        ctk.CTkLabel(
+                        gt_lbl = ctk.CTkLabel(
                             sub_f_in,
                             text=f'🟢 Ground Truth: "{sa_r_stmt}"',
                             font=ctk.CTkFont(size=11, weight="bold"),
                             text_color="#34d399",
-                            wraplength=870,
                             justify="left"
-                        ).pack(anchor="w")
+                        )
+                        self._register_responsive_label(gt_lbl, 160)
+                        gt_lbl.pack(anchor="w")
                 elif sa_v == "SUPPORTED" and sa_ev_q:
                     sub_s = ctk.CTkFrame(sa_b_inner, fg_color="#061f15", corner_radius=6)
                     sub_s.pack(fill="x", pady=(2, 2))
                     sub_s_in = ctk.CTkFrame(sub_s, fg_color="transparent")
                     sub_s_in.pack(fill="x", padx=10, pady=8)
-                    ctk.CTkLabel(
+                    cor_ev_lbl = ctk.CTkLabel(
                         sub_s_in,
                         text=f'📄 Corroborating Evidence: "{sa_ev_q}"',
                         font=ctk.CTkFont(size=11, slant="italic"),
                         text_color="#94a3b8",
-                        wraplength=870,
                         justify="left"
-                    ).pack(anchor="w")
+                    )
+                    self._register_responsive_label(cor_ev_lbl, 160)
+                    cor_ev_lbl.pack(anchor="w")
 
         # 5. PRIMARY PROVING RESOURCE & AUTHORITATIVE CITATION ARCHIVE
         if proving_res:
@@ -1100,14 +1157,15 @@ class ClaimForensicModal(ctk.CTkToplevel):
 
             ev_text = proving_res.get("evidence_text", "")
             if ev_text:
-                ctk.CTkLabel(
+                ev_lbl = ctk.CTkLabel(
                     src_box,
                     text=f'"{ev_text}"',
                     font=ctk.CTkFont(size=11, slant="italic"),
                     text_color="#cbd5e1",
-                    wraplength=920,
                     justify="left"
-                ).pack(anchor="w", padx=14, pady=(0, 12))
+                )
+                self._register_responsive_label(ev_lbl, 140)
+                ev_lbl.pack(anchor="w", padx=14, pady=(0, 12))
 
         # 6. 17-SIGNAL NEURAL RADAR & GATING TELEMETRY
         tele_card = ctk.CTkFrame(
@@ -1176,6 +1234,10 @@ class ClaimForensicModal(ctk.CTkToplevel):
             command=self._close_modal
         )
         close_bottom_btn.pack(side="right")
+
+        # Buttery smooth scrolling across child widgets
+        if hasattr(self.parent_app, "_enable_smooth_scrolling"):
+            self.parent_app._enable_smooth_scrolling(scroll)
 
     def _copy_right_statement(self):
         if self.clm.get("right_statement"):
@@ -1264,11 +1326,16 @@ class TRUVIApp(ctk.CTk):
         self.clipboard_thread = None
         self._last_modal_time = 0.0
 
-        # Window Configuration
+        # Window Configuration (Fluid Responsive Geometry)
         self.title("TRUVI-EV — Trustworthy Evidence-Aware Verifier Studio")
-        self.geometry("1180x820")
-        self.minsize(1000, 700)
+        self.geometry("1160x800")
+        self.minsize(860, 560)
         self.configure(fg_color=COLOR_BG_ROOT)
+
+        # Responsive Geometry & Smooth Scrolling Engine
+        self._responsive_labels: List[Any] = []
+        self._resize_debounced_id = None
+        self.bind("<Configure>", self._on_window_resize)
 
         # Translucency for macOS
         try:
@@ -1338,6 +1405,124 @@ class TRUVIApp(ctk.CTk):
 
         # 4. Bottom Status Bar
         self._build_status_bar()
+
+    # =========================================================================
+    # Responsive Geometry & Smooth Scrolling Engine
+    # =========================================================================
+    def _on_window_resize(self, event=None):
+        if event and event.widget == self:
+            if hasattr(self, "_resize_debounced_id") and self._resize_debounced_id:
+                try:
+                    self.after_cancel(self._resize_debounced_id)
+                except Exception:
+                    pass
+            self._resize_debounced_id = self.after(80, self._apply_responsive_layout)
+
+    def _apply_responsive_layout(self):
+        """Dynamically adapts layout, text wrapping, and badges based on current window width."""
+        try:
+            cur_w = self.winfo_width()
+            if cur_w < 300:
+                return
+
+            # 1. Update all registered responsive text labels
+            alive_labels = []
+            for item in getattr(self, "_responsive_labels", []):
+                try:
+                    lbl_ref = item[0]
+                    pad = item[1]
+                    if lbl_ref.winfo_exists():
+                        target_wrap = max(380, cur_w - pad)
+                        lbl_ref.configure(wraplength=target_wrap)
+                        alive_labels.append((lbl_ref, pad))
+                except Exception:
+                    pass
+            self._responsive_labels = alive_labels
+
+            # 2. Responsive Header Elements
+            if hasattr(self, "header_subtitle") and self.header_subtitle.winfo_exists():
+                if cur_w < 920:
+                    self.header_subtitle.configure(text="Reliability-Gated Fact-Checking Studio")
+                elif cur_w < 1060:
+                    self.header_subtitle.configure(text="Reliability-Gated Neural Hallucination Detector")
+                else:
+                    self.header_subtitle.configure(text="Reliability-Gated Neural Hallucination Detection & Evidence Synthesis")
+
+            if hasattr(self, "model_pill") and self.model_pill.winfo_exists():
+                if cur_w < 1020:
+                    self.model_pill.configure(text="● 17 SIGNALS")
+                else:
+                    self.model_pill.configure(text="● ENGINE ONLINE • 17 SIGNALS")
+
+            if hasattr(self, "test_hud_btn") and self.test_hud_btn.winfo_exists():
+                if cur_w < 960:
+                    self.test_hud_btn.configure(text="⚡ HUD", width=60)
+                else:
+                    self.test_hud_btn.configure(text="⚡ Test HUD Popup", width=120)
+
+            # 3. Responsive Tab Navigation Bar
+            if hasattr(self, "tab_buttons"):
+                is_compact_tabs = cur_w < 940
+                tab_labels = {
+                    "⚡ Live Verifier": "⚡ Verifier" if is_compact_tabs else "⚡ Live Verifier",
+                    "📊 17-Signal Neural Radar": "📊 Radar" if is_compact_tabs else "📊 17-Signal Neural Radar",
+                    "🏛️ Evidence & Sources": "🏛️ Evidence" if is_compact_tabs else "🏛️ Evidence & Sources",
+                    "🕒 Session History": "🕒 History" if is_compact_tabs else "🕒 Session History"
+                }
+                for t_key, t_btn in self.tab_buttons.items():
+                    if t_btn.winfo_exists():
+                        new_text = tab_labels.get(t_key, t_key)
+                        if t_btn.cget("text") != new_text:
+                            t_btn.configure(text=new_text)
+
+            # 4. Responsive Paragraph Verdict Header Stats
+            if hasattr(self, "stats_lbl") and hasattr(self, "para_counts") and self.stats_lbl.winfo_exists():
+                c = self.para_counts
+                if cur_w < 980:
+                    self.stats_lbl.configure(text=f"{c.get('total_claims', 0)} Claims • {c.get('supported', 0)}✓ • {c.get('contradicted', 0)}✕ • {c.get('unverified', 0)}⚠")
+                else:
+                    self.stats_lbl.configure(text=f"Claims: {c.get('total_claims', 0)} Total • {c.get('supported', 0)} Supported • {c.get('contradicted', 0)} Contradicted • {c.get('unverified', 0)} Unverified")
+
+        except Exception:
+            pass
+
+    def _register_responsive_label(self, label: ctk.CTkLabel, padding: int = 240):
+        """Registers a label for dynamic wraplength calculation on window resizing."""
+        if not hasattr(self, "_responsive_labels"):
+            self._responsive_labels = []
+        cur_w = self.winfo_width() if self.winfo_width() > 300 else 1160
+        target_wrap = max(380, cur_w - padding)
+        try:
+            label.configure(wraplength=target_wrap)
+            self._responsive_labels.append((label, padding))
+        except Exception:
+            pass
+
+    def _enable_smooth_scrolling(self, scrollable_frame: ctk.CTkScrollableFrame):
+        """Binds trackpad and mousewheel recursively across child widgets so scrolling never catches."""
+        canvas = getattr(scrollable_frame, "_parent_canvas", None)
+        if not canvas:
+            return
+
+        def _on_wheel(event):
+            try:
+                if event.delta:
+                    step = -1 if event.delta > 0 else 1
+                    canvas.yview_scroll(step, "units")
+            except Exception:
+                pass
+
+        def _bind_tree(widget):
+            try:
+                if isinstance(widget, ctk.CTkTextbox):
+                    return
+                widget.bind("<MouseWheel>", _on_wheel, add="+")
+            except Exception:
+                pass
+            for child in widget.winfo_children():
+                _bind_tree(child)
+
+        _bind_tree(scrollable_frame)
 
     # =========================================================================
     # Header & Tab Navigation
@@ -1579,13 +1764,13 @@ class TRUVIApp(ctk.CTk):
         self.pulse_lbl.pack(side="left")
         self.after(1600, self._animate_status_pulse)
 
-        subtitle = ctk.CTkLabel(
+        self.header_subtitle = ctk.CTkLabel(
             title_box,
             text="Reliability-Gated Neural Hallucination Detection & Evidence Synthesis",
             font=ctk.CTkFont(family="SF Pro Display", size=11),
             text_color=COLOR_TEXT_MUTED
         )
-        subtitle.pack(anchor="w", pady=(2, 0))
+        self.header_subtitle.pack(anchor="w", pady=(2, 0))
 
         # Center: Interactive Dynamic Notification Island (Header-level, 100% visible)
         self.center_toast_box = ctk.CTkFrame(header, fg_color="transparent")
@@ -1612,7 +1797,7 @@ class TRUVIApp(ctk.CTk):
         right_box = ctk.CTkFrame(header, fg_color="transparent")
         right_box.pack(side="right", padx=16, pady=10)
 
-        model_pill = ctk.CTkLabel(
+        self.model_pill = ctk.CTkLabel(
             right_box,
             text="● ENGINE ONLINE • 17 SIGNALS",
             fg_color="#072b1d",
@@ -1622,9 +1807,9 @@ class TRUVIApp(ctk.CTk):
             padx=10,
             pady=4
         )
-        model_pill.pack(side="left", padx=(0, 8))
+        self.model_pill.pack(side="left", padx=(0, 8))
 
-        test_hud_btn = ctk.CTkButton(
+        self.test_hud_btn = ctk.CTkButton(
             right_box,
             text="⚡ Test HUD Popup",
             height=28,
@@ -1635,7 +1820,7 @@ class TRUVIApp(ctk.CTk):
             corner_radius=8,
             command=self._trigger_test_hud
         )
-        test_hud_btn.pack(side="left", padx=(0, 8))
+        self.test_hud_btn.pack(side="left", padx=(0, 8))
 
         self.clip_switch = ctk.CTkSwitch(
             right_box,
@@ -1706,15 +1891,19 @@ class TRUVIApp(ctk.CTk):
 
         if tab_id == "⚡ Live Verifier":
             self.view_verifier.pack(fill="both", expand=True)
+            self._enable_smooth_scrolling(self.view_verifier)
         elif tab_id == "📊 17-Signal Neural Radar":
             self.view_radar.pack(fill="both", expand=True)
             self._render_radar_tab()
+            self._enable_smooth_scrolling(self.view_radar)
         elif tab_id == "🏛️ Evidence & Sources":
             self.view_evidence.pack(fill="both", expand=True)
             self._render_evidence_tab()
+            self._enable_smooth_scrolling(self.view_evidence)
         elif tab_id == "🕒 Session History":
             self.view_history.pack(fill="both", expand=True)
             self._render_history_tab()
+            self._enable_smooth_scrolling(self.view_history)
 
     # =========================================================================
     # Tab 1: ⚡ Live Verifier View
@@ -1763,130 +1952,182 @@ class TRUVIApp(ctk.CTk):
         self.text_input.insert("1.0", "The Amazon is the longest river in the world. The Great Wall of China is visible from the Moon with the naked eye. Water boils at 100°C at sea level. The Eiffel Tower is in Paris.")
         self.text_input.bind("<KeyRelease>", self._update_input_telemetry)
 
-        chips_frame = ctk.CTkFrame(input_card, fg_color="transparent")
-        chips_frame.pack(fill="x", padx=18, pady=(0, 10))
+        # Responsive Benchmark Presets Container (2 Compact Rows of 3)
+        chips_container = ctk.CTkFrame(input_card, fg_color="transparent")
+        chips_container.pack(fill="x", padx=18, pady=(0, 10))
+
+        chips_hdr = ctk.CTkFrame(chips_container, fg_color="transparent")
+        chips_hdr.pack(fill="x", pady=(0, 4))
 
         chips_lbl = ctk.CTkLabel(
-            chips_frame,
-            text="Presets:",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=COLOR_TEXT_MUTED
+            chips_hdr,
+            text="⚡ QUICK BENCHMARK PRESETS (1-CLICK TEST):",
+            font=ctk.CTkFont(family="SF Pro Display", size=10, weight="bold"),
+            text_color="#64748b"
         )
-        chips_lbl.pack(side="left", padx=(0, 8))
+        chips_lbl.pack(side="left")
 
-        examples = [
+        chips_row1 = ctk.CTkFrame(chips_container, fg_color="transparent")
+        chips_row1.pack(fill="x", pady=(0, 4))
+
+        chips_row2 = ctk.CTkFrame(chips_container, fg_color="transparent")
+        chips_row2.pack(fill="x")
+
+        examples_row1 = [
             ("🪐 Venus & Planets", "Venus is the closest planet to the Sun and is the hottest planet in the Solar System."),
             ("🏔️ Everest & Sound", "Over 346 people have died on Mount Everest, which has a height of 8,848.86 m, and sound travels at 343 m/s in air."),
             ("🌕 Moon & Light", "The Moon produces its own light, and light travels at ~300,000 km/s in a vacuum."),
-            ("🦴 Anatomy & Earth", "The human body has ~206 bones in adulthood, and Earth rotates in ~24 hours causing day and night."),
-            ("🧪 Mixed Paragraph", "The Amazon is the longest river in the world. The Great Wall of China is visible from the Moon with the naked eye. Water boils at 100°C at sea level. The Eiffel Tower is in Paris."),
-            ("⚖️ Half-True / Half-False", "Barack Obama was born in Kenya, but became the 44th US President."),
         ]
-
-        for label_text, claim_val in examples:
+        for label_text, claim_val in examples_row1:
             btn = ctk.CTkButton(
-                chips_frame,
+                chips_row1,
                 text=label_text,
                 height=26,
                 fg_color="#0d182b",
                 hover_color="#182c4f",
                 text_color="#cbd5e1",
-                font=ctk.CTkFont(size=11, weight="bold"),
+                font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
                 border_color="#1d2e4a",
                 border_width=1,
-                corner_radius=8,
+                corner_radius=7,
                 command=lambda c=claim_val, l=label_text: self._load_example(c, l)
             )
-            btn.pack(side="left", padx=4)
+            btn.pack(side="left", padx=(0, 6))
 
-        btn_row = ctk.CTkFrame(input_card, fg_color="transparent")
-        btn_row.pack(fill="x", padx=18, pady=(0, 14))
+        examples_row2 = [
+            ("🦴 Anatomy & Earth", "The human body has ~206 bones in adulthood, and Earth rotates in ~24 hours causing day and night."),
+            ("🧪 Mixed Paragraph", "The Amazon is the longest river in the world. The Great Wall of China is visible from the Moon with the naked eye. Water boils at 100°C at sea level. The Eiffel Tower is in Paris."),
+            ("⚖️ Half-True / Half-False", "Barack Obama was born in Kenya, but became the 44th US President."),
+        ]
+        for label_text, claim_val in examples_row2:
+            btn = ctk.CTkButton(
+                chips_row2,
+                text=label_text,
+                height=26,
+                fg_color="#0d182b",
+                hover_color="#182c4f",
+                text_color="#cbd5e1",
+                font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+                border_color="#1d2e4a",
+                border_width=1,
+                corner_radius=7,
+                command=lambda c=claim_val, l=label_text: self._load_example(c, l)
+            )
+            btn.pack(side="left", padx=(0, 6))
+
+        # -------------------------------------------------------------
+        # 2-Tier Ergonomic Command Bar (Guaranteed Zero Horizontal Clip)
+        # -------------------------------------------------------------
+        # Tier 1: Primary Execution Controls
+        exec_row = ctk.CTkFrame(input_card, fg_color="transparent")
+        exec_row.pack(fill="x", padx=18, pady=(0, 8))
 
         self.verify_btn = ctk.CTkButton(
-            btn_row,
+            exec_row,
             text="⚡ VERIFY WITH TRUVI-EV  [ ⌘ ↵ ]",
-            height=42,
+            height=40,
             fg_color=COLOR_ACCENT_PRIMARY,
             hover_color=COLOR_ACCENT_HOVER,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            corner_radius=12,
+            font=ctk.CTkFont(family="SF Pro Display", size=13, weight="bold"),
+            corner_radius=10,
             command=self._on_verify_clicked
         )
         self.verify_btn.pack(side="left", padx=(0, 10))
 
-        self.copy_prompt_btn = ctk.CTkButton(
-            btn_row,
-            text="📋 Copy Prompt",
-            height=42,
-            fg_color="#0e1f38",
-            hover_color="#1e3a66",
-            border_color="#2b4c80",
-            border_width=1.2,
-            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
-            text_color="#60a5fa",
-            corner_radius=12,
-            command=self._copy_prompt
-        )
-        self.copy_prompt_btn.pack(side="left", padx=(0, 10))
-
-        self.copy_ans_btn = ctk.CTkButton(
-            btn_row,
-            text="📋 Copy Factual Answer",
-            height=42,
-            fg_color="#064e3b",
-            hover_color="#059669",
-            border_color="#059669",
-            border_width=1.2,
-            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
-            text_color="#34d399",
-            corner_radius=12,
-            command=self._copy_factual_answer
-        )
-        self.copy_ans_btn.pack(side="left", padx=(0, 10))
-
-        self.copy_report_btn = ctk.CTkButton(
-            btn_row,
-            text="📋 Copy Audit Report",
-            height=42,
-            fg_color="#141d2e",
-            hover_color="#22304a",
-            border_color="#2b3b55",
-            border_width=1.2,
-            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
-            text_color="#cbd5e1",
-            corner_radius=12,
-            command=self._copy_active_report
-        )
-        self.copy_report_btn.pack(side="left", padx=(0, 10))
-
         paste_btn = ctk.CTkButton(
-            btn_row,
+            exec_row,
             text="📥 Paste & Verify",
-            height=42,
+            height=40,
             fg_color="#0f192b",
             hover_color="#1b2a45",
             border_color="#223554",
             border_width=1,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="SF Pro Display", size=12),
             text_color="#94a3b8",
-            corner_radius=12,
+            corner_radius=10,
             command=self._paste_and_verify
         )
         paste_btn.pack(side="left", padx=(0, 10))
 
         clear_btn = ctk.CTkButton(
-            btn_row,
+            exec_row,
             text="🗑️ Clear",
-            width=70,
-            height=42,
+            width=76,
+            height=40,
             fg_color="transparent",
             hover_color="#241318",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="SF Pro Display", size=12),
             text_color=COLOR_TEXT_MUTED,
-            corner_radius=12,
+            corner_radius=10,
             command=self._clear_input
         )
         clear_btn.pack(side="left")
+
+        # Tier 2: 1-Click Studio Export & Clipboard Row
+        export_bar = ctk.CTkFrame(
+            input_card,
+            fg_color="#070c17",
+            border_color="#182336",
+            border_width=1,
+            corner_radius=10
+        )
+        export_bar.pack(fill="x", padx=18, pady=(0, 14))
+
+        eb_inner = ctk.CTkFrame(export_bar, fg_color="transparent")
+        eb_inner.pack(fill="x", padx=12, pady=6)
+
+        exp_lbl = ctk.CTkLabel(
+            eb_inner,
+            text="1-CLICK EXPORT:",
+            font=ctk.CTkFont(family="SF Pro Display", size=10, weight="bold"),
+            text_color="#64748b"
+        )
+        exp_lbl.pack(side="left", padx=(0, 12))
+
+        self.copy_prompt_btn = ctk.CTkButton(
+            eb_inner,
+            text="📋 Copy Prompt",
+            height=32,
+            fg_color="#0e1f38",
+            hover_color="#1e3a66",
+            border_color="#2b4c80",
+            border_width=1,
+            font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+            text_color="#60a5fa",
+            corner_radius=8,
+            command=self._copy_prompt
+        )
+        self.copy_prompt_btn.pack(side="left", padx=(0, 8))
+
+        self.copy_ans_btn = ctk.CTkButton(
+            eb_inner,
+            text="📋 Copy Factual Answer",
+            height=32,
+            fg_color="#064e3b",
+            hover_color="#059669",
+            border_color="#059669",
+            border_width=1,
+            font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+            text_color="#34d399",
+            corner_radius=8,
+            command=self._copy_factual_answer
+        )
+        self.copy_ans_btn.pack(side="left", padx=(0, 8))
+
+        self.copy_report_btn = ctk.CTkButton(
+            eb_inner,
+            text="📋 Copy Audit Report",
+            height=32,
+            fg_color="#141d2e",
+            hover_color="#22304a",
+            border_color="#2b3b55",
+            border_width=1,
+            font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+            text_color="#cbd5e1",
+            corner_radius=8,
+            command=self._copy_active_report
+        )
+        self.copy_report_btn.pack(side="left", padx=(0, 8))
 
         self.results_frame = ctk.CTkFrame(self.view_verifier, fg_color="transparent")
         self.results_frame.pack(fill="x", expand=True, pady=(6, 16))
@@ -1957,23 +2198,29 @@ class TRUVIApp(ctk.CTk):
         )
         desc.pack(pady=(0, 16))
 
-        feat_row = ctk.CTkFrame(inner, fg_color="transparent")
-        feat_row.pack(pady=4)
+        feat_grid = ctk.CTkFrame(inner, fg_color="transparent")
+        feat_grid.pack(fill="x", pady=6)
+        feat_grid.columnconfigure(0, weight=1)
+        feat_grid.columnconfigure(1, weight=1)
 
         feats = [
-            ("⚡ 17-Signal Gated Radar", "NLI, Cosine, Source, Consensus"),
-            ("🌐 Live Web & Wiki", "Real-time search verification"),
-            ("📋 Instant Clipboard HUD", "Highlight text anywhere & copy"),
-            ("🟢 Ground-Truth Corrections", "Pinpoints false parts & rewrites")
+            ("⚡ 17-Signal Gated Radar", "NLI, Cosine, Source Authority, Consensus Agreement"),
+            ("🌐 Live Web & Wiki Synthesis", "Real-time search & Wikipedia consensus extraction"),
+            ("📋 Instant Clipboard HUD", "Global macOS monitor with 1-click popout verification"),
+            ("🟢 Ground-Truth Corrections", "Pinpoints exact contradictory clauses & rewrites facts")
         ]
-        for title, sub in feats:
-            f_box = ctk.CTkFrame(feat_row, fg_color="#09101d", border_color="#18263d", border_width=1, corner_radius=10, width=200, height=56)
-            f_box.pack(side="left", padx=6)
+        for i, (title, sub) in enumerate(feats):
+            row_idx = i // 2
+            col_idx = i % 2
+            f_box = ctk.CTkFrame(feat_grid, fg_color="#09101d", border_color="#18263d", border_width=1, corner_radius=10, height=56)
+            f_box.grid(row=row_idx, column=col_idx, padx=6, pady=4, sticky="ew")
             f_box.pack_propagate(False)
-            t_lbl = ctk.CTkLabel(f_box, text=title, font=ctk.CTkFont(size=11, weight="bold"), text_color="#38bdf8")
-            t_lbl.pack(pady=(8, 1))
+            t_lbl = ctk.CTkLabel(f_box, text=title, font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"), text_color="#38bdf8")
+            t_lbl.pack(pady=(7, 1))
             s_lbl = ctk.CTkLabel(f_box, text=sub, font=ctk.CTkFont(size=10), text_color=COLOR_TEXT_MUTED)
             s_lbl.pack()
+
+        self._enable_smooth_scrolling(self.view_verifier)
 
     # =========================================================================
     # Verification Actions & Rendering
@@ -2259,7 +2506,8 @@ class TRUVIApp(ctk.CTk):
             p_hdr = ctk.CTkLabel(part_frame, text="🔴 WHAT PART IS CONTRADICTED:", font=ctk.CTkFont(size=10, weight="bold"), text_color=COLOR_CONTRADICTED_TEXT)
             p_hdr.pack(anchor="w", padx=12, pady=(6, 2))
 
-            p_val = ctk.CTkLabel(part_frame, text=f'"{c_part}"', font=ctk.CTkFont(size=12, weight="bold"), text_color="#ffffff", wraplength=940, justify="left")
+            p_val = ctk.CTkLabel(part_frame, text=f'"{c_part}"', font=ctk.CTkFont(size=12, weight="bold"), text_color="#ffffff", justify="left")
+            self._register_responsive_label(p_val, 240)
             p_val.pack(anchor="w", padx=12, pady=(0, 8))
 
             # 2. PROVING RESOURCE & EVIDENCE QUOTE
@@ -2285,9 +2533,9 @@ class TRUVIApp(ctk.CTk):
                 text=f'"{resrc.get("evidence_text", "")}"',
                 font=ctk.CTkFont(size=11, slant="italic"),
                 text_color="#cbd5e1",
-                wraplength=940,
                 justify="left"
             )
+            self._register_responsive_label(ev_quote, 240)
             ev_quote.pack(anchor="w", padx=12, pady=(0, 8))
 
             # 3. WHAT WOULD BE THE RIGHT STATEMENT INSTEAD
@@ -2298,7 +2546,8 @@ class TRUVIApp(ctk.CTk):
                 rt_hdr = ctk.CTkLabel(right_frame, text="🟢 WHAT WOULD BE THE RIGHT STATEMENT INSTEAD (GROUND TRUTH):", font=ctk.CTkFont(size=10, weight="bold"), text_color=COLOR_SUPPORTED_TEXT)
                 rt_hdr.pack(anchor="w", padx=12, pady=(6, 2))
 
-                rt_val = ctk.CTkLabel(right_frame, text=f'"{r_stmt}"', font=ctk.CTkFont(size=13, weight="bold"), text_color="#34d399", wraplength=940, justify="left")
+                rt_val = ctk.CTkLabel(right_frame, text=f'"{r_stmt}"', font=ctk.CTkFont(size=13, weight="bold"), text_color="#34d399", justify="left")
+                self._register_responsive_label(rt_val, 240)
                 rt_val.pack(anchor="w", padx=12, pady=(0, 8))
 
         # Action Advisory Callout
@@ -2310,9 +2559,9 @@ class TRUVIApp(ctk.CTk):
                 text=advisory,
                 font=ctk.CTkFont(size=12, weight="bold"),
                 text_color=v_txt,
-                wraplength=960,
                 justify="left"
             )
+            self._register_responsive_label(adv_txt, 240)
             adv_txt.pack(anchor="w", padx=14, pady=8)
 
         # Short Reason Box
@@ -2332,9 +2581,9 @@ class TRUVIApp(ctk.CTk):
             text=reason,
             font=ctk.CTkFont(size=12),
             text_color=COLOR_TEXT_PRIMARY,
-            wraplength=960,
             justify="left"
         )
+        self._register_responsive_label(r_text, 240)
         r_text.pack(anchor="w", padx=14, pady=(0, 10))
 
         # If Compound Claim, Render Sub-Claim Cards
@@ -2380,9 +2629,9 @@ class TRUVIApp(ctk.CTk):
                     text=sc.get("claim", ""),
                     font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
                     text_color=COLOR_TEXT_PRIMARY,
-                    wraplength=520,
                     justify="left"
                 )
+                self._register_responsive_label(clm_lbl, 550)
                 clm_lbl.pack(side="left", padx=10)
 
                 sc_btn_box = ctk.CTkFrame(top_sc, fg_color="transparent")
@@ -2418,9 +2667,9 @@ class TRUVIApp(ctk.CTk):
                     text=sc.get("short_reason", ""),
                     font=ctk.CTkFont(size=11),
                     text_color=COLOR_TEXT_SECONDARY,
-                    wraplength=880,
                     justify="left"
                 )
+                self._register_responsive_label(sub_rsn, 260)
                 sub_rsn.pack(anchor="w", padx=12, pady=(0, 6))
 
                 # Expandable Forensic Frame
@@ -2440,6 +2689,8 @@ class TRUVIApp(ctk.CTk):
                 sc_toggle_btn.configure(command=_make_sc_toggle(sc_detail, sc_toggle_btn))
 
             ctk.CTkLabel(sub_frame, text="").pack(pady=2)
+
+        self._enable_smooth_scrolling(self.view_verifier)
 
     # -------------------------------------------------------------------------
     # Paragraph Rendering
@@ -2505,13 +2756,14 @@ class TRUVIApp(ctk.CTk):
             f"{counts.get('contradicted', 0)} Contradicted  •  "
             f"{counts.get('unverified', 0)} Unverified"
         )
-        stats_lbl = ctk.CTkLabel(
+        self.para_counts = counts
+        self.stats_lbl = ctk.CTkLabel(
             top_row,
             text=stats_text,
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#cbd5e1"
         )
-        stats_lbl.pack(side="right")
+        self.stats_lbl.pack(side="right")
 
         # Meters Row: Severity Rate & Average Confidence
         meters_row = ctk.CTkFrame(b_inner, fg_color="transparent")
@@ -2590,9 +2842,9 @@ class TRUVIApp(ctk.CTk):
                 text=f'"{corr_para}"',
                 font=ctk.CTkFont(size=13, weight="bold"),
                 text_color="#f8fafc",
-                wraplength=940,
                 justify="left"
             )
+            self._register_responsive_label(corr_txt, 240)
             corr_txt.pack(anchor="w", padx=16, pady=(0, 14))
 
         # Action Advisory
@@ -2604,9 +2856,9 @@ class TRUVIApp(ctk.CTk):
                 text=advisory,
                 font=ctk.CTkFont(size=12, weight="bold"),
                 text_color=v_txt,
-                wraplength=960,
                 justify="left"
             )
+            self._register_responsive_label(adv_txt, 240)
             adv_txt.pack(anchor="w", padx=14, pady=8)
 
         # Summary Text
@@ -2626,9 +2878,9 @@ class TRUVIApp(ctk.CTk):
             text=summary,
             font=ctk.CTkFont(size=12),
             text_color=COLOR_TEXT_PRIMARY,
-            wraplength=960,
             justify="left"
         )
+        self._register_responsive_label(s_txt, 240)
         s_txt.pack(anchor="w", padx=14, pady=(0, 10))
 
         # -------------------------------------------------------------
@@ -2764,9 +3016,9 @@ class TRUVIApp(ctk.CTk):
                 text=clm.get("claim", ""),
                 font=ctk.CTkFont(family="SF Pro Display", size=13, weight="bold"),
                 text_color=COLOR_TEXT_PRIMARY,
-                wraplength=940,
                 justify="left"
             )
+            self._register_responsive_label(clm_text_lbl, 260)
             clm_text_lbl.pack(anchor="w", padx=14, pady=(2, 6))
 
             # Quick summary bar (if contradicted, show refutation and right statement with copy)
@@ -2796,9 +3048,9 @@ class TRUVIApp(ctk.CTk):
                         text=f'🟢 Right Statement: "{r_stmt}"',
                         font=ctk.CTkFont(size=11, weight="bold"),
                         text_color="#34d399",
-                        wraplength=820,
                         justify="left"
                     )
+                    self._register_responsive_label(q_stmt, 350)
                     q_stmt.pack(side="left", anchor="w")
 
                     q_copy = ctk.CTkButton(
@@ -2822,9 +3074,9 @@ class TRUVIApp(ctk.CTk):
                     text=clm.get("short_reason", ""),
                     font=ctk.CTkFont(size=11),
                     text_color=COLOR_TEXT_SECONDARY,
-                    wraplength=940,
                     justify="left"
                 )
+                self._register_responsive_label(rsn_lbl, 260)
                 rsn_lbl.pack(anchor="w", padx=14, pady=(0, 6))
 
             # Expandable In-Card Forensic Details Frame (Initially collapsed)
@@ -2842,6 +3094,8 @@ class TRUVIApp(ctk.CTk):
                 return _do_toggle
 
             toggle_btn.configure(command=_make_toggle(detail_frame, toggle_btn))
+
+        self._enable_smooth_scrolling(self.view_verifier)
 
     def _populate_in_card_forensics(self, container, clm: Dict[str, Any], claim_num: int):
         """Populates rich forensic breakdown and evidence proof directly inside the claim card."""
@@ -2880,9 +3134,9 @@ class TRUVIApp(ctk.CTk):
                     text_color="#fda4af",
                     padx=10,
                     pady=4,
-                    wraplength=880,
                     justify="left"
                 )
+                self._register_responsive_label(cp_lbl, 280)
                 cp_lbl.pack(anchor="w")
 
             if resrc:
@@ -2910,9 +3164,9 @@ class TRUVIApp(ctk.CTk):
                         text=f'📜 Evidence Proof: "{ev_quote}"',
                         font=ctk.CTkFont(size=11, slant="italic"),
                         text_color="#cbd5e1",
-                        wraplength=860,
                         justify="left"
                     )
+                    self._register_responsive_label(q_line, 280)
                     q_line.pack(anchor="w", pady=(4, 0))
 
             if r_stmt:
@@ -2937,9 +3191,9 @@ class TRUVIApp(ctk.CTk):
                     text=f'"{r_stmt}"',
                     font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
                     text_color="#34d399",
-                    wraplength=760,
                     justify="left"
                 )
+                self._register_responsive_label(rt_txt, 350)
                 rt_txt.pack(side="left", anchor="w")
 
                 cp_btn = ctk.CTkButton(
@@ -3179,6 +3433,8 @@ class TRUVIApp(ctk.CTk):
             v_lbl = ctk.CTkLabel(row, text=f"{fval:.4f}", width=70, font=ctk.CTkFont(size=11, weight="bold"), text_color="#38bdf8")
             v_lbl.pack(side="right", padx=12)
 
+        self._enable_smooth_scrolling(self.view_radar)
+
     def _build_pillar_card(self, parent, title: str, subtitle: str, meters: List[tuple]):
         inner = ctk.CTkFrame(parent, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=14, pady=14)
@@ -3270,8 +3526,11 @@ class TRUVIApp(ctk.CTk):
             txt_box = ctk.CTkFrame(c_inner, fg_color="#090e18", corner_radius=8)
             txt_box.pack(fill="x")
 
-            txt = ctk.CTkLabel(txt_box, text=f'"{ev.get("text", "")}"', font=ctk.CTkFont(size=12), text_color="#cbd5e1", wraplength=940, justify="left")
+            txt = ctk.CTkLabel(txt_box, text=f'"{ev.get("text", "")}"', font=ctk.CTkFont(size=12), text_color="#cbd5e1", justify="left")
+            self._register_responsive_label(txt, 240)
             txt.pack(anchor="w", padx=12, pady=10)
+
+        self._enable_smooth_scrolling(self.view_evidence)
 
     # =========================================================================
     # Tab 4: 🕒 Session History View
@@ -3343,6 +3602,8 @@ class TRUVIApp(ctk.CTk):
                 command=lambda r=res: self.load_and_display_result(r)
             )
             load_btn.pack(side="right")
+
+        self._enable_smooth_scrolling(self.view_history)
 
     def _clear_history(self):
         self.session_history.clear()
