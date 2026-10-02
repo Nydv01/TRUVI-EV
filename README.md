@@ -5,7 +5,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![License: Academic Research](https://img.shields.io/badge/License-Academic%20Research-green.svg)](LICENSE)
 [![Architecture: 17-Feature Gated MLP](https://img.shields.io/badge/Architecture-17--Feature%20Gated%20MLP-blueviolet.svg)](#-system-architecture)
-[![Documentation: Capstone Viva Reference](https://img.shields.io/badge/Documentation-Capstone%20Viva%20Reference-success.svg)](#-viva-preparation--key-questions)
+[![Documentation: Technical Architecture & FAQ](https://img.shields.io/badge/Documentation-Technical%20FAQ-success.svg)](#-frequently-asked-questions--system-details)
 
 ---
 
@@ -44,7 +44,7 @@ python3 launch_truvi.py
 6. [Obsidian Studio GUI & macOS Clipboard HUD](#-obsidian-studio-gui--macos-clipboard-hud)
 7. [Project Structure](#-project-structure)
 8. [Complete Reproduction Pipeline (Phases 1–17)](#-complete-reproduction-pipeline)
-9. [Viva Preparation & Key Questions](#-viva-preparation--key-questions)
+9. [Frequently Asked Questions & System Details](#-frequently-asked-questions--system-details)
 10. [Documentation & Reports](#-documentation--reports)
 
 ---
@@ -152,7 +152,7 @@ graph TD
 
 ### Offline Benchmark (RAGTruth Dataset — ACL 2024)
 
-> **Important Distinction for Viva/Evaluations:**
+> **Important Evaluation Note:**
 > - **Offline Benchmark**: Evaluates the trained model on 2,520 real-world, highly challenging LLM hallucination outputs from RAGTruth with noisy, ambiguous passages.
 > - **Live Production System**: Couples the trained neural verifier with multi-tier authoritative retrieval (NASA, NIST, Britannica, USGS) and achieves **85%–95%+ accuracy** on standard factual queries.
 
@@ -179,7 +179,7 @@ graph TD
 | w/o Semantic Similarity (Signals 3–4) | 0.485 | 0.598 | -0.016 (Loss of overlap metric) |
 | w/o Reliability Gate (Ablating $\mathbf{g}$) | 0.487 | 0.504 | **-0.110 (Catastrophic drop in weighted-F1)** |
 
-> **Key Viva Finding**: The Reliability Gate provides the single largest improvement (+0.110 Weighted-F1) by preventing low-quality evidence from propagating erroneous NLI predictions.
+> **Key Empirical Finding**: The Reliability Gate provides the single largest improvement (+0.110 Weighted-F1) by preventing low-quality evidence from propagating erroneous NLI predictions.
 
 ---
 
@@ -322,7 +322,7 @@ python -m src.evaluation.figures
 
 ---
 
-## 🎓 Viva Preparation & Key Questions
+## 💡 Frequently Asked Questions & System Details
 
 ### Q1: Why not just use DeBERTa NLI directly?
 > **Answer**: NLI models assume the premise (evidence) is infallible truth. In real RAG systems, retrieved passages are frequently noisy, irrelevant, or biased. DeBERTa alone achieves only 46.19% accuracy on RAGTruth because it hallucinates high confidence on flawed premises. TRUVI-EV's Reliability Gate scales the NLI signals by evidence authority and consensus, raising Weighted-F1 to 61.41%.
@@ -346,11 +346,11 @@ python -m src.evaluation.figures
 - **Ablation Study Results**: [`outputs/tables/ablation_results.csv`](outputs/tables/ablation_results.csv)
 - **Error Analysis Table**: [`outputs/tables/error_analysis.csv`](outputs/tables/error_analysis.csv)
 - **Publication Figures**: [`outputs/figures/`](outputs/figures/) (System architecture, reliability gate visualizations, confusion matrices)
-- **Capstone Viva Reference**: Complete 15-page project report available locally as `TRUVI-EV_Complete_Project_Report.pdf`.
+- **Technical Report**: Comprehensive 15-page reference document available locally as `TRUVI-EV_Complete_Project_Report.pdf`.
 
 ---
 
 ## ⚖️ License & Attribution
-Developed for Capstone Project / Viva Defense. Academic research use only.
+Academic research and demonstration use only.
 Dataset: [RAGTruth (ACL 2024)](https://github.com/ParticleMedia/RAGTruth).
 Models: HuggingFace DeBERTa-v3 & BGE-base.
