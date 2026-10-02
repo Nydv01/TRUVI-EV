@@ -1,0 +1,65 @@
+# =============================================================================
+# TRUVI-EV .gitignore
+# =============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environments & local env
+venv/
+env/
+.env
+.venv
+
+# IDEs & OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data directory (Large raw datasets, embeddings, splits, FAISS indices - 1.3GB+)
+data/
+*.jsonl
+*.npy
+*.bin
+*.index
+*.faiss
+
+# Pretrained model checkpoints and PyTorch binaries
+*.pt
+*.pth
+*.safetensors
+experiments/truvi/*.pt
+experiments/models/
+
+# Scratch & build scripts
+build_paper.py
+scratch/
+
+# Phase Reports and Full Project Report (excluded per instructions)
+TRUVI-EV_Complete_Project_Report.md
+TRUVI-EV_Complete_Project_Report.pdf
+TRUVI-EV_Phase*.md
+*Phase*_Report.md
+outputs/reports/
+outputs/logs/

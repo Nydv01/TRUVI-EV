@@ -1,0 +1,34 @@
+# TRUVI-EV Main Configuration
+project:
+  name: "TRUVI-EV"
+  version: "0.1.0"
+  description: "Trustworthy Evidence-Aware Verifier"
+
+paths:
+  data_raw: "data/raw"
+  data_interim: "data/interim"
+  data_processed: "data/processed"
+  data_claims: "data/claims"
+  data_evidence: "data/evidence"
+  data_predictions: "data/predictions"
+  outputs: "outputs"
+  figures: "outputs/figures"
+  tables: "outputs/tables"
+  logs: "outputs/logs"
+  reports: "outputs/reports"
+
+dataset:
+  name: "RAGTruth"
+  repository: "https://github.com/ParticleMedia/RAGTruth"
+  response_file: "response.jsonl"
+  source_info_file: "source_info.jsonl"
+  base_url: "https://raw.githubusercontent.com/ParticleMedia/RAGTruth/main/dataset"
+
+labels:
+  # Our project labels (derived, NOT native to RAGTruth)
+  project_labels:
+    - "SUPPORTED"
+    - "CONTRADICTED"
+    - "UNVERIFIED"
+  # Note: RAGTruth uses word-level hallucination labels, NOT these 3-class labels
+  # The mapping must be carefully justified. See dataset inspection report.

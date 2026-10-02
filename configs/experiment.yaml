@@ -1,0 +1,41 @@
+# TRUVI-EV Experiment Configuration
+experiment:
+  name: "main_experiment_v1"
+  seed: 42
+
+retrieval:
+  method: "dense"  # dense | hybrid
+  top_k: 5  # Start with 5, test 10 on validation
+  chunk_size: 256  # tokens
+  chunk_overlap: 64  # tokens
+
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  max_epochs: 100
+  early_stopping_patience: 10
+  validation_split: 0.2  # from training set
+
+evaluation:
+  metrics:
+    classification:
+      - "accuracy"
+      - "precision"
+      - "recall"
+      - "macro_f1"
+      - "weighted_f1"
+      - "class_f1"  # Per-class F1
+    retrieval:
+      - "recall_at_1"
+      - "recall_at_5"
+      - "recall_at_10"
+      - "mrr"
+
+ablation:
+  experiments:
+    A1: "Full TRUVI-EV"
+    A2: "Without evidence reliability"
+    A3: "Without evidence agreement"
+    A4: "Without semantic similarity"
+    A5: "Without NLI"
+    A6: "Without reliability gate"

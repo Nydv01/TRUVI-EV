@@ -1,0 +1,22 @@
+{
+  "mean_gate_values": {
+    "nli_max_entailment": 0.4787,
+    "nli_max_contradiction": 0.4836,
+    "nli_mean_entailment": 0.4941,
+    "nli_mean_contradiction": 0.4449,
+    "nli_mean_neutral": 0.4513,
+    "sim_max": 0.5065,
+    "sim_mean": 0.472,
+    "sim_min": 0.4416,
+    "sim_std": 0.4975,
+    "rel_top1_confidence": 0.468,
+    "rel_score_gap": 0.4624,
+    "rel_mean_confidence": 0.4891,
+    "rel_source_match_ratio": 0.5204,
+    "agr_nli_agreement": 0.4853,
+    "agr_score_variance": 0.4761,
+    "agr_entailment_ratio": 0.4573,
+    "agr_contradiction_ratio": 0.5252
+  },
+  "interpretation": "Higher = more trusted by the model"
+}

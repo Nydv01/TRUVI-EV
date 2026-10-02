@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRUVI-EV — Trustworthy Evidence-Aware Verifier</title>
+  <meta name="description" content="TRUVI-EV: A reliability-gated multi-signal fusion framework for LLM hallucination detection using evidence-aware verification.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
+  
+  <!-- Lenis Smooth Scroll -->
+  <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Cursor follower -->
+  <div class="cursor-glow" id="cursorGlow"></div>
+  
+  <!-- Loading Screen -->
+  <div class="loader" id="loader">
+    <div class="loader-content">
+      <div class="loader-logo">
+        <span class="loader-bracket">[</span>
+        <span class="loader-text">TRUVI-EV</span>
+        <span class="loader-bracket">]</span>
+      </div>
+      <div class="loader-bar">
+        <div class="loader-bar-fill" id="loaderFill"></div>
+      </div>
+      <p class="loader-subtitle">Initializing verification engine...</p>
+    </div>
+  </div>
+
+  <!-- Three.js Canvas -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-logo">
+      <span class="nav-logo-bracket">[</span>
+      <span class="nav-logo-text">TRUVI-EV</span>
+      <span class="nav-logo-bracket">]</span>
+    </div>
+    <div class="nav-links">
+      <a href="#hero" class="nav-link active" data-section="hero">Home</a>
+      <a href="#about" class="nav-link" data-section="about">About</a>
+      <a href="#pipeline" class="nav-link" data-section="pipeline">Pipeline</a>
+      <a href="#results" class="nav-link" data-section="results">Results</a>
+      <a href="#demo" class="nav-link" data-section="demo">Demo</a>
+      <a href="#figures" class="nav-link" data-section="figures">Figures</a>
+    </div>
+    <div class="nav-status">
+      <span class="nav-status-dot"></span>
+      <span class="nav-status-text">System Active</span>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        IEEE Conference Research Paper
+      </div>
+      <h1 class="hero-title">
+        <span class="hero-line" data-delay="0">Trustworthy</span>
+        <span class="hero-line gradient-text" data-delay="0.15">Evidence-Aware</span>
+        <span class="hero-line" data-delay="0.3">Verifier</span>
+      </h1>
+      <p class="hero-subtitle">
+        A reliability-gated multi-signal fusion framework for detecting LLM hallucinations
+        using NLI, semantic similarity, evidence reliability, and agreement signals.
+      </p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-value" data-count="114501">0</span>
+          <span class="hero-stat-label">Claims Verified</span>
+        </div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-value" data-count="17">0</span>
+          <span class="hero-stat-label">Feature Dimensions</span>
+        </div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-value" data-count="4">0</span>
+          <span class="hero-stat-label">Signal Types</span>
+        </div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-value special" data-decimal="0.3074">0</span>
+          <span class="hero-stat-label">F1 Macro Score</span>
+        </div>
+      </div>
+      <div class="hero-cta">
+        <a href="#demo" class="btn btn-primary">
+          <span class="btn-text">Try Live Demo</span>
+          <span class="btn-icon">→</span>
+        </a>
+        <a href="#pipeline" class="btn btn-ghost">
+          <span class="btn-text">Explore Pipeline</span>
+        </a>
+      </div>
+    </div>
+    <div class="hero-scroll-indicator">
+      <div class="scroll-line"></div>
+      <span>Scroll to explore</span>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="section about" id="about">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">01 — About</span>
+        <h2 class="section-title">What is <span class="gradient-text">TRUVI-EV</span>?</h2>
+      </div>
+      <div class="about-grid">
+        <div class="about-text">
+          <p class="about-lead">Large Language Models hallucinate. We detect it.</p>
+          <p>TRUVI-EV is a <strong>multi-signal verification framework</strong> that determines whether 
+          claims generated by LLMs are factually supported, contradicted, or unverifiable based on 
+          retrieved evidence.</p>
+          <p>Unlike single-signal approaches, TRUVI-EV fuses <strong>four verification signals</strong> 
+          through a <strong>learned reliability gate</strong> — allowing the model to dynamically 
+          suppress unreliable evidence and amplify trustworthy signals.</p>
+        </div>
+        <div class="about-cards">
+          <div class="glass-card about-card" data-signal="nli">
+            <div class="card-icon">🧠</div>
+            <h3>NLI Signal</h3>
+            <p>Natural Language Inference using DeBERTa cross-encoder for entailment/contradiction detection</p>
+            <div class="card-metric">
+              <span class="metric-label">Model</span>
+              <span class="metric-value">DeBERTa-v3</span>
+            </div>
+          </div>
+          <div class="glass-card about-card" data-signal="sim">
+            <div class="card-icon">📐</div>
+            <h3>Similarity Signal</h3>
+            <p>Cosine similarity between claim and evidence embeddings using BGE model</p>
+            <div class="card-metric">
+              <span class="metric-label">Mean Score</span>
+              <span class="metric-value">0.656</span>
+            </div>
+          </div>
+          <div class="glass-card about-card" data-signal="rel">
+            <div class="card-icon">🛡️</div>
+            <h3>Reliability Signal</h3>
+            <p>Evidence trustworthiness derived from retrieval confidence, source matching, and NLI confidence</p>
+            <div class="card-metric">
+              <span class="metric-label">Mean Score</span>
+              <span class="metric-value">0.489</span>
+            </div>
+          </div>
+          <div class="glass-card about-card" data-signal="agr">
+            <div class="card-icon">🤝</div>
+            <h3>Agreement Signal</h3>
+            <p>Consistency among top-k evidence passages — do they tell the same story?</p>
+            <div class="card-metric">
+              <span class="metric-label">Mean Score</span>
+              <span class="metric-value">0.852</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pipeline Section -->
+  <section class="section pipeline" id="pipeline">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">02 — Pipeline</span>
+        <h2 class="section-title">The <span class="gradient-text">17-Phase</span> Architecture</h2>
+        <p class="section-desc">From raw dataset to verified predictions — every step is reproducible, modular, and explainable.</p>
+      </div>
+      
+      <div class="pipeline-flow">
+        <div class="pipeline-track">
+          <div class="pipeline-line"></div>
+          <div class="pipeline-line-fill" id="pipelineFill"></div>
+        </div>
+        
+        <div class="pipeline-phases">
+          <div class="pipeline-group" data-group="data">
+            <div class="pipeline-group-label">Data Layer</div>
+            <div class="pipeline-nodes">
+              <div class="pipeline-node" data-phase="1">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 1-2</span>
+                  <h4>Dataset Acquisition & Preprocessing</h4>
+                  <p>RAGTruth dataset — 114,501 claims from LLM responses</p>
+                </div>
+              </div>
+              <div class="pipeline-node" data-phase="3">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 3</span>
+                  <h4>Claim Extraction</h4>
+                  <p>Extract atomic claims with SUPPORTED / CONTRADICTED / UNVERIFIED labels</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-group" data-group="retrieval">
+            <div class="pipeline-group-label">Retrieval Layer</div>
+            <div class="pipeline-nodes">
+              <div class="pipeline-node" data-phase="4">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 4</span>
+                  <h4>Evidence Corpus</h4>
+                  <p>6,327 evidence chunks indexed with FAISS</p>
+                </div>
+              </div>
+              <div class="pipeline-node" data-phase="5">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 5</span>
+                  <h4>Dense Retrieval</h4>
+                  <p>Top-5 evidence per claim via BGE embeddings</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-group" data-group="signals">
+            <div class="pipeline-group-label">Verification Signals</div>
+            <div class="pipeline-nodes">
+              <div class="pipeline-node glow-blue" data-phase="6">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 6</span>
+                  <h4>NLI Signals</h4>
+                  <p>572,505 NLI pairs processed in ~17 hours</p>
+                </div>
+              </div>
+              <div class="pipeline-node glow-green" data-phase="7">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 7</span>
+                  <h4>Similarity Signals</h4>
+                  <p>Cosine similarity via BGE-base-en-v1.5</p>
+                </div>
+              </div>
+              <div class="pipeline-node glow-amber" data-phase="8">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 8</span>
+                  <h4>Reliability Signals</h4>
+                  <p>4-component composite trustworthiness score</p>
+                </div>
+              </div>
+              <div class="pipeline-node glow-red" data-phase="9">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 9</span>
+                  <h4>Agreement Signals</h4>
+                  <p>Evidence consistency via majority voting</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-group" data-group="fusion">
+            <div class="pipeline-group-label">Fusion & Evaluation</div>
+            <div class="pipeline-nodes">
+              <div class="pipeline-node glow-purple" data-phase="10">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 10-14</span>
+                  <h4>Reliability-Gated MLP</h4>
+                  <p>g = σ(Wx + b) → z = g ⊙ x → MLP(z) → softmax</p>
+                </div>
+              </div>
+              <div class="pipeline-node" data-phase="15">
+                <div class="node-dot"></div>
+                <div class="node-content">
+                  <span class="node-phase">Phase 15-17</span>
+                  <h4>Evaluation & Analysis</h4>
+                  <p>Ablation study, error analysis, figure generation</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gate Architecture Visual -->
+      <div class="architecture-visual">
+        <h3 class="arch-title">Reliability Gate Architecture</h3>
+        <div class="arch-flow">
+          <div class="arch-box arch-input">
+            <span class="arch-label">Input</span>
+            <span class="arch-detail">x ∈ ℝ¹⁷</span>
+          </div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-box arch-gate">
+            <span class="arch-label">Gate</span>
+            <span class="arch-detail">g = σ(Wx + b)</span>
+          </div>
+          <div class="arch-arrow">⊙</div>
+          <div class="arch-box arch-gated">
+            <span class="arch-label">Gated</span>
+            <span class="arch-detail">z = g ⊙ x</span>
+          </div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-box arch-mlp">
+            <span class="arch-label">MLP</span>
+            <span class="arch-detail">128→64→32</span>
+          </div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-box arch-output">
+            <span class="arch-label">Output</span>
+            <span class="arch-detail">3-class softmax</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results Section -->
+  <section class="section results" id="results">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">03 — Results</span>
+        <h2 class="section-title">Performance <span class="gradient-text">Benchmarks</span></h2>
+        <p class="section-desc">TRUVI-EV outperforms all baselines on the primary metric (F1 Macro).</p>
+      </div>
+
+      <div class="results-table-wrapper">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Accuracy</th>
+              <th>F1 Macro ↑</th>
+              <th>F1 Weighted</th>
+              <th>F1 Supported</th>
+              <th>F1 Contradicted</th>
+              <th>F1 Unverified</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="result-row" data-model="b1">
+              <td class="model-name">B1: Similarity Only</td>
+              <td>0.4274</td>
+              <td><div class="bar-cell"><div class="bar" style="--bar-width: 84.3%">0.2592</div></div></td>
+              <td>0.5495</td>
+              <td>0.5950</td>
+              <td>0.1018</td>
+              <td>0.0808</td>
+            </tr>
+            <tr class="result-row" data-model="b2">
+              <td class="model-name">B2: NLI Only</td>
+              <td>0.1302</td>
+              <td><div class="bar-cell"><div class="bar" style="--bar-width: 37.7%">0.1160</div></div></td>
+              <td>0.1529</td>
+              <td>0.1583</td>
+              <td>0.0833</td>
+              <td>0.1065</td>
+            </tr>
+            <tr class="result-row" data-model="b3">
+              <td class="model-name">B3: NLI + Similarity</td>
+              <td>0.3809</td>
+              <td><div class="bar-cell"><div class="bar" style="--bar-width: 80.5%">0.2475</div></div></td>
+              <td>0.5007</td>
+              <td>0.5404</td>
+              <td>0.1067</td>
+              <td>0.0956</td>
+            </tr>
+            <tr class="result-row" data-model="b4">
+              <td class="model-name">B4: Fixed Weighted Fusion</td>
+              <td>0.1333</td>
+              <td><div class="bar-cell"><div class="bar" style="--bar-width: 38.0%">0.1167</div></div></td>
+              <td>0.1537</td>
+              <td>0.1592</td>
+              <td>0.0818</td>
+              <td>0.1092</td>
+            </tr>
+            <tr class="result-row" data-model="b5">
+              <td class="model-name">B5: All Signals (LR)</td>
+              <td>0.4484</td>
+              <td><div class="bar-cell"><div class="bar" style="--bar-width: 91.5%">0.2814</div></div></td>
+              <td>0.5666</td>
+              <td>0.6113</td>
+              <td>0.1226</td>
+              <td>0.1104</td>
+            </tr>
+            <tr class="result-row highlight" data-model="truvi">
+              <td class="model-name"><strong>TRUVI-EV (Ours)</strong></td>
+              <td><strong>0.5017</strong></td>
+              <td><div class="bar-cell"><div class="bar best" style="--bar-width: 100%"><strong>0.3074</strong></div></div></td>
+              <td><strong>0.6141</strong></td>
+              <td><strong>0.6624</strong></td>
+              <td><strong>0.1465</strong></td>
+              <td><strong>0.1133</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Key Insights -->
+      <div class="insights-grid">
+        <div class="glass-card insight-card">
+          <div class="insight-number">+9.2%</div>
+          <p>Relative improvement over best baseline (B5) in F1 Macro</p>
+        </div>
+        <div class="glass-card insight-card">
+          <div class="insight-number">+164%</div>
+          <p>Improvement over NLI-only baseline — proving multi-signal value</p>
+        </div>
+        <div class="glass-card insight-card">
+          <div class="insight-number">572K</div>
+          <p>NLI pairs processed across 114,501 claims in the verification pipeline</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo Section -->
+  <section class="section demo" id="demo">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">04 — Live Demo</span>
+        <h2 class="section-title">Verify a <span class="gradient-text">Claim</span></h2>
+        <p class="section-desc">Enter any claim to see how TRUVI-EV would process it through the verification pipeline.</p>
+      </div>
+
+      <div class="demo-container">
+        <div class="demo-input-area">
+          <div class="glass-card demo-card">
+            <label class="demo-label">Enter a claim to verify</label>
+            <textarea class="demo-input" id="demoInput" placeholder="e.g. The company reported revenue of $2.3 billion in Q3 2024..." rows="3"></textarea>
+            <div class="demo-examples">
+              <span class="demo-example-label">Try an example:</span>
+              <button class="demo-example-btn" data-claim="The company reported revenue of $2.3 billion in Q3 2024.">Financial claim</button>
+              <button class="demo-example-btn" data-claim="The treatment showed a 95% success rate in clinical trials.">Medical claim</button>
+              <button class="demo-example-btn" data-claim="Python was created by Guido van Rossum in 1991.">Factual claim</button>
+            </div>
+            <button class="btn btn-primary demo-btn" id="demoBtn">
+              <span class="btn-text">Verify Claim</span>
+              <span class="btn-icon">⚡</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="demo-output-area" id="demoOutput" style="display: none;">
+          <div class="demo-pipeline-viz">
+            <div class="demo-step" data-step="retrieval">
+              <div class="demo-step-icon">🔍</div>
+              <div class="demo-step-content">
+                <h4>Evidence Retrieval</h4>
+                <p class="demo-step-status">Searching FAISS index...</p>
+                <div class="demo-step-bar"><div class="demo-step-fill"></div></div>
+              </div>
+            </div>
+            <div class="demo-step" data-step="nli">
+              <div class="demo-step-icon">🧠</div>
+              <div class="demo-step-content">
+                <h4>NLI Analysis</h4>
+                <p class="demo-step-status">Running DeBERTa inference...</p>
+                <div class="demo-step-bar"><div class="demo-step-fill"></div></div>
+              </div>
+            </div>
+            <div class="demo-step" data-step="signals">
+              <div class="demo-step-icon">📊</div>
+              <div class="demo-step-content">
+                <h4>Signal Computation</h4>
+                <p class="demo-step-status">Computing 4 verification signals...</p>
+                <div class="demo-step-bar"><div class="demo-step-fill"></div></div>
+              </div>
+            </div>
+            <div class="demo-step" data-step="gate">
+              <div class="demo-step-icon">🛡️</div>
+              <div class="demo-step-content">
+                <h4>Reliability Gate</h4>
+                <p class="demo-step-status">Applying learned gate...</p>
+                <div class="demo-step-bar"><div class="demo-step-fill"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="demo-result glass-card" id="demoResult" style="display: none;">
+            <div class="demo-verdict" id="demoVerdict">
+              <span class="verdict-label" id="verdictLabel">SUPPORTED</span>
+              <span class="verdict-confidence" id="verdictConfidence">87.3%</span>
+            </div>
+            
+            <!-- Explanation -->
+            <div class="demo-explanation" id="demoExplanation">
+              <p id="explanationText"></p>
+            </div>
+
+            <!-- NLI Breakdown -->
+            <div class="demo-nli-breakdown">
+              <h4 class="demo-section-title">NLI Analysis</h4>
+              <div class="nli-bars">
+                <div class="nli-bar-row">
+                  <span class="nli-label ent-label">Entailment</span>
+                  <div class="nli-bar-track"><div class="nli-bar-fill ent-fill" id="nliEntBar"></div></div>
+                  <span class="nli-val" id="nliEntVal">0%</span>
+                </div>
+                <div class="nli-bar-row">
+                  <span class="nli-label con-label">Contradiction</span>
+                  <div class="nli-bar-track"><div class="nli-bar-fill con-fill" id="nliConBar"></div></div>
+                  <span class="nli-val" id="nliConVal">0%</span>
+                </div>
+                <div class="nli-bar-row">
+                  <span class="nli-label neu-label">Neutral</span>
+                  <div class="nli-bar-track"><div class="nli-bar-fill neu-fill" id="nliNeuBar"></div></div>
+                  <span class="nli-val" id="nliNeuVal">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Evidence Snippets -->
+            <div class="demo-evidence" id="demoEvidence">
+              <h4 class="demo-section-title">Retrieved Evidence</h4>
+              <div class="evidence-list" id="evidenceList"></div>
+            </div>
+            
+            <!-- Signal Bars -->
+            <div class="demo-signals-section">
+              <h4 class="demo-section-title">Verification Signals</h4>
+              <div class="demo-signals" id="demoSignals">
+                <div class="demo-signal">
+                  <span class="signal-name">NLI Entailment</span>
+                  <div class="signal-bar"><div class="signal-fill nli" id="sigNli"></div></div>
+                  <span class="signal-value" id="sigNliVal">0.00</span>
+                </div>
+                <div class="demo-signal">
+                  <span class="signal-name">NLI Contradiction</span>
+                  <div class="signal-bar"><div class="signal-fill con-signal" id="sigCon"></div></div>
+                  <span class="signal-value" id="sigConVal">0.00</span>
+                </div>
+                <div class="demo-signal">
+                  <span class="signal-name">Similarity</span>
+                  <div class="signal-bar"><div class="signal-fill sim" id="sigSim"></div></div>
+                  <span class="signal-value" id="sigSimVal">0.00</span>
+                </div>
+                <div class="demo-signal">
+                  <span class="signal-name">Reliability</span>
+                  <div class="signal-bar"><div class="signal-fill rel" id="sigRel"></div></div>
+                  <span class="signal-value" id="sigRelVal">0.00</span>
+                </div>
+                <div class="demo-signal">
+                  <span class="signal-name">Agreement</span>
+                  <div class="signal-bar"><div class="signal-fill agr" id="sigAgr"></div></div>
+                  <span class="signal-value" id="sigAgrVal">0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pipeline Info -->
+            <div class="demo-pipeline-info" id="demoPipelineInfo">
+              <span class="pipeline-tag">Mode: <strong id="modeTag">demo</strong></span>
+              <span class="pipeline-tag">Retrieval: BGE-base-en-v1.5</span>
+              <span class="pipeline-tag">NLI: DeBERTa-v3-base</span>
+              <span class="pipeline-tag">Index: 6,327 chunks</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Figures Section -->
+  <section class="section figures" id="figures">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">05 — Figures</span>
+        <h2 class="section-title">Research <span class="gradient-text">Visualizations</span></h2>
+      </div>
+
+      <div class="figures-gallery">
+        <div class="figure-card glass-card" data-fig="1">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig1_label_distribution.png" alt="Label Distribution" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 1: Label Distribution</h4>
+            <p>3-class distribution across 114,501 claims</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="2">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig2_performance_comparison.png" alt="Performance Comparison" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 2: Performance Comparison</h4>
+            <p>Baselines vs TRUVI-EV on test set</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="3">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig3_reliability_gate.png" alt="Reliability Gate" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 3: Reliability Gate</h4>
+            <p>Learned feature importance via gate values</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="4">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig4_confusion_matrix.png" alt="Confusion Matrix" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 4: Confusion Matrix</h4>
+            <p>TRUVI-EV prediction breakdown</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="5">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig5_ablation.png" alt="Ablation Study" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 5: Ablation Study</h4>
+            <p>Signal contribution analysis</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="6">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig6_hallucination_by_model.png" alt="Hallucination by Model" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 6: Hallucination Rate</h4>
+            <p>Per-LLM hallucination analysis</p>
+          </div>
+        </div>
+        <div class="figure-card glass-card" data-fig="7">
+          <div class="figure-img-wrapper">
+            <img src="/figures/fig7_training_curve.png" alt="Training Curves" loading="lazy">
+          </div>
+          <div class="figure-info">
+            <h4>Fig 7: Training Curves</h4>
+            <p>Loss and F1 over epochs</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">
+        <span class="nav-logo-bracket">[</span>
+        <span class="nav-logo-text">TRUVI-EV</span>
+        <span class="nav-logo-bracket">]</span>
+      </div>
+      <p class="footer-text">Trustworthy Evidence-Aware Verifier — Academic Research Project</p>
+      <p class="footer-sub">Built with DeBERTa, FAISS, PyTorch, and a reliability gate.</p>
+      <div class="footer-tech">
+        <span class="tech-tag">PyTorch</span>
+        <span class="tech-tag">DeBERTa</span>
+        <span class="tech-tag">FAISS</span>
+        <span class="tech-tag">BGE</span>
+        <span class="tech-tag">RAGTruth</span>
+        <span class="tech-tag">Three.js</span>
+        <span class="tech-tag">GSAP</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <div class="lightbox-overlay"></div>
+    <div class="lightbox-content">
+      <img id="lightboxImg" src="" alt="">
+      <button class="lightbox-close" id="lightboxClose">✕</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

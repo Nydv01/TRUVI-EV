@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# =============================================================================
+# TRUVI-EV CLI Launch Command
+# =============================================================================
+# Resolves symlinks to find TRUVI-EV directory regardless of where it is called.
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+cd "$SCRIPT_DIR"
+
+if command -v python3 &>/dev/null; then
+    exec python3 "$SCRIPT_DIR/launch_truvi.py" "$@"
+elif command -v python &>/dev/null; then
+    exec python "$SCRIPT_DIR/launch_truvi.py" "$@"
+else
+    echo "Error: Python 3 was not found in PATH." >&2
+    exit 1
+fi
