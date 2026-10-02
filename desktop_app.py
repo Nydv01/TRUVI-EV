@@ -48,6 +48,15 @@ try:
 except ImportError:
     CLIPBOARD_AVAILABLE = False
 
+def _play_tactile_chime(sound_name: str = "Tink.aiff"):
+    """Plays crisp native macOS audio feedback asynchronously for instant tactile confirmation."""
+    try:
+        sound_path = f"/System/Library/Sounds/{sound_name}"
+        if os.path.exists(sound_path):
+            subprocess.Popen(["afplay", sound_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
 # Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -561,12 +570,16 @@ class FloatingHUDNotification(ctk.CTkToplevel):
             text_to_copy = self.result.get("right_statement", "")
 
         try:
-            if CLIPBOARD_AVAILABLE and text_to_copy:
-                if hasattr(self.parent_app, "last_clipboard_text"):
-                    self.parent_app.last_clipboard_text = text_to_copy.strip()
-                pyperclip.copy(text_to_copy)
-            self.copy_btn.configure(text="✓ Copied!", fg_color="#065f46")
-            self.after(1500, lambda: self.copy_btn.configure(text="📋 Copy Right Fact", fg_color="#064e3b"))
+            if text_to_copy:
+                clean = text_to_copy.strip()
+                if CLIPBOARD_AVAILABLE:
+                    if hasattr(self.parent_app, "last_clipboard_text"):
+                        self.parent_app.last_clipboard_text = clean
+                    pyperclip.copy(clean)
+                subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
+                _play_tactile_chime("Tink.aiff")
+            self.copy_btn.configure(text="✓ Copied!", fg_color="#059669")
+            self.after(1600, lambda: self.copy_btn.configure(text="📋 Copy Right Fact", fg_color="#064e3b"))
         except Exception:
             pass
 
@@ -579,12 +592,15 @@ class FloatingHUDNotification(ctk.CTkToplevel):
         report = f"**TRUVI-EV Fact-Check Report**\n• Claim: \"{text}\"\n• Verdict: {v} ({conf})\n• Advisory: {adv}"
 
         try:
+            clean = report.strip()
             if CLIPBOARD_AVAILABLE:
                 if hasattr(self.parent_app, "last_clipboard_text"):
-                    self.parent_app.last_clipboard_text = report.strip()
-                pyperclip.copy(report)
-            self.copy_btn.configure(text="✓ Copied!", fg_color="#064e3b")
-            self.after(1500, lambda: self.copy_btn.configure(text="📋 Copy Fact-Check", fg_color="#1e293b"))
+                    self.parent_app.last_clipboard_text = clean
+                pyperclip.copy(clean)
+            subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
+            _play_tactile_chime("Tink.aiff")
+            self.copy_btn.configure(text="✓ Copied!", fg_color="#059669")
+            self.after(1600, lambda: self.copy_btn.configure(text="📋 Copy Fact-Check", fg_color="#1e293b"))
         except Exception:
             pass
 
@@ -1162,15 +1178,20 @@ class ClaimForensicModal(ctk.CTkToplevel):
         close_bottom_btn.pack(side="right")
 
     def _copy_right_statement(self):
-        if CLIPBOARD_AVAILABLE and self.clm.get("right_statement"):
+        if self.clm.get("right_statement"):
             try:
                 stmt = self.clm["right_statement"].strip()
-                if hasattr(self.parent_app, "last_clipboard_text"):
-                    self.parent_app.last_clipboard_text = stmt
-                pyperclip.copy(stmt)
+                if CLIPBOARD_AVAILABLE:
+                    if hasattr(self.parent_app, "last_clipboard_text"):
+                        self.parent_app.last_clipboard_text = stmt
+                    pyperclip.copy(stmt)
+                subprocess.run(["pbcopy"], input=stmt.encode("utf-8"), check=False)
+                _play_tactile_chime("Tink.aiff")
                 if hasattr(self, "copy_stmt_btn"):
-                    self.copy_stmt_btn.configure(text="✓ Copied!", fg_color="#047857")
-                    self.after(2000, lambda: self.copy_stmt_btn.configure(text="📋 Copy Right Statement", fg_color="#065f46"))
+                    self.copy_stmt_btn.configure(text="✓ Copied!", fg_color="#059669")
+                    self.after(1800, lambda: self.copy_stmt_btn.configure(text="📋 Copy Right Statement", fg_color="#064e3b"))
+                if hasattr(self.parent_app, "show_toast"):
+                    self.parent_app.show_toast("Right Statement Copied!", icon="✓", color="#10b981")
             except Exception:
                 pass
 
@@ -1197,14 +1218,20 @@ class ClaimForensicModal(ctk.CTkToplevel):
 
     def _copy_full_dossier(self):
         report = self._build_forensic_markdown()
-        if CLIPBOARD_AVAILABLE and report:
+        if report:
             try:
-                if hasattr(self.parent_app, "last_clipboard_text"):
-                    self.parent_app.last_clipboard_text = report.strip()
-                pyperclip.copy(report)
+                clean = report.strip()
+                if CLIPBOARD_AVAILABLE:
+                    if hasattr(self.parent_app, "last_clipboard_text"):
+                        self.parent_app.last_clipboard_text = clean
+                    pyperclip.copy(clean)
+                subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
+                _play_tactile_chime("Tink.aiff")
                 if hasattr(self, "copy_full_btn"):
-                    self.copy_full_btn.configure(text="✓ Dossier Copied!", fg_color="#047857")
-                    self.after(2000, lambda: self.copy_full_btn.configure(text="📋 Copy Full Forensic Dossier", fg_color="#1e293b"))
+                    self.copy_full_btn.configure(text="✓ Dossier Copied!", fg_color="#059669")
+                    self.after(1800, lambda: self.copy_full_btn.configure(text="📋 Copy Full Forensic Dossier", fg_color="#1e293b"))
+                if hasattr(self.parent_app, "show_toast"):
+                    self.parent_app.show_toast("Forensic Dossier Copied!", icon="✓", color="#10b981")
             except Exception:
                 pass
 
@@ -1258,6 +1285,9 @@ class TRUVIApp(ctk.CTk):
         self.bind("<Control-Return>", lambda e: self._on_verify_clicked())
         self.bind("<Command-k>", lambda e: self._clear_input())
         self.bind("<Control-k>", lambda e: self._clear_input())
+        self.bind("<Command-Shift-C>", lambda e: self._copy_active_report())
+        self.bind("<Command-Shift-A>", lambda e: self._copy_factual_answer())
+        self.bind("<Command-Shift-P>", lambda e: self._copy_prompt())
 
     def _build_ui(self):
         """Constructs the desktop interface."""
@@ -1313,7 +1343,23 @@ class TRUVIApp(ctk.CTk):
     # Header & Tab Navigation
     # =========================================================================
     def show_toast(self, message: str, icon: str = "✓", color: str = "#10b981"):
-        """Displays a floating modern Toast notification that smoothly appears and dismisses."""
+        """Displays floating Toast and illuminates the Header Dynamic Notification Island."""
+        # 1. Update and show the Header Dynamic Notification Island (100% visible, never clipped)
+        if hasattr(self, "dynamic_pill") and hasattr(self, "dynamic_pill_label"):
+            try:
+                bg_col = "#04261a" if color == "#10b981" else ("#2b0d16" if color == "#f43f5e" else "#1e1405")
+                txt_col = "#34d399" if color == "#10b981" else ("#fb7185" if color == "#f43f5e" else "#fcd34d")
+                self.dynamic_pill.configure(border_color=color, fg_color=bg_col)
+                self.dynamic_pill_label.configure(text=f" {icon}  {message} ", text_color=txt_col)
+                if not self.dynamic_pill.winfo_ismapped():
+                    self.dynamic_pill.pack(expand=True)
+                if hasattr(self, "header_toast_timer") and self.header_toast_timer:
+                    self.after_cancel(self.header_toast_timer)
+                self.header_toast_timer = self.after(2400, lambda: self.dynamic_pill.pack_forget() if (hasattr(self, "dynamic_pill") and self.dynamic_pill.winfo_exists()) else None)
+            except Exception:
+                pass
+
+        # 2. Also show floating prominent notification banner with explicit lift()
         if hasattr(self, "toast_frame") and self.toast_frame is not None:
             try:
                 if hasattr(self, "toast_after_id") and self.toast_after_id:
@@ -1325,30 +1371,31 @@ class TRUVIApp(ctk.CTk):
 
         self.toast_frame = ctk.CTkFrame(
             self,
-            fg_color="#071322",
+            fg_color="#050e1a",
             border_color=color,
-            border_width=1.5,
-            corner_radius=12,
-            height=40
+            border_width=2,
+            corner_radius=14,
+            height=44
         )
-        self.toast_frame.place(relx=0.5, rely=0.075, anchor="center")
+        self.toast_frame.place(relx=0.5, rely=0.105, anchor="center")
+        self.toast_frame.lift()
 
         t_inner = ctk.CTkFrame(self.toast_frame, fg_color="transparent")
-        t_inner.pack(padx=16, pady=6)
+        t_inner.pack(padx=20, pady=8)
 
         t_icon = ctk.CTkLabel(
             t_inner,
             text=f" {icon} ",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=15, weight="bold"),
             text_color=color
         )
-        t_icon.pack(side="left", padx=(0, 6))
+        t_icon.pack(side="left", padx=(0, 8))
 
         t_msg = ctk.CTkLabel(
             t_inner,
             text=message,
-            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
-            text_color="#f8fafc"
+            font=ctk.CTkFont(family="SF Pro Display", size=13, weight="bold"),
+            text_color="#ffffff"
         )
         t_msg.pack(side="left")
 
@@ -1360,7 +1407,92 @@ class TRUVIApp(ctk.CTk):
                     pass
                 self.toast_frame = None
 
-        self.toast_after_id = self.after(2000, _dismiss)
+        self.toast_after_id = self.after(2200, _dismiss)
+
+    def _copy_with_feedback(self, text: str, btn: Optional[ctk.CTkButton] = None, success_msg: str = "Copied to Clipboard!"):
+        """Guaranteed clipboard copy with audio click, button micro-transformation, and Dynamic Toast."""
+        if not text:
+            return
+        clean = text.strip()
+
+        # 1. Guaranteed clipboard copy (pyperclip + native macOS pbcopy)
+        try:
+            if CLIPBOARD_AVAILABLE:
+                self.last_clipboard_text = clean
+                pyperclip.copy(clean)
+        except Exception:
+            pass
+        try:
+            subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
+            self.last_clipboard_text = clean
+        except Exception:
+            pass
+
+        # 2. Tactile audio feedback (macOS Tink click sound)
+        _play_tactile_chime("Tink.aiff")
+
+        # 3. Visual button micro-state transformation
+        if btn is not None:
+            try:
+                orig_text = getattr(btn, "_orig_text", None) or btn.cget("text")
+                orig_fg = getattr(btn, "_orig_fg", None) or btn.cget("fg_color")
+                orig_border = getattr(btn, "_orig_border", None) or btn.cget("border_color")
+                btn._orig_text = orig_text
+                btn._orig_fg = orig_fg
+                btn._orig_border = orig_border
+
+                btn.configure(
+                    text="✓ Copied!",
+                    fg_color="#059669",
+                    border_color="#34d399"
+                )
+
+                def _revert(b=btn, ot=orig_text, of=orig_fg, ob=orig_border):
+                    try:
+                        if b.winfo_exists():
+                            b.configure(text=ot, fg_color=of, border_color=ob)
+                    except Exception:
+                        pass
+
+                self.after(1800, _revert)
+            except Exception:
+                pass
+
+        # 4. Trigger Dynamic Island Notification & Floating Toast
+        self.show_toast(success_msg, icon="✓", color="#10b981")
+
+    def _copy_prompt(self):
+        """Copies the input text / query prompt to clipboard with instant multi-sensory feedback."""
+        try:
+            txt = self.text_input.get("1.0", "end").strip()
+            if not txt:
+                self.show_toast("No prompt to copy — enter text first", icon="⚠", color="#f59e0b")
+                return
+            btn = getattr(self, "copy_prompt_btn", None)
+            chars = len(txt)
+            self._copy_with_feedback(txt, btn, f"Prompt Copied! ({chars} Chars)")
+        except Exception:
+            pass
+
+    def _copy_factual_answer(self):
+        """Copies the 100% verified ground-truth answer statement or corrected paragraph."""
+        if self.active_result is None:
+            self.show_toast("Run verification first to copy factual answer", icon="⚠", color="#f59e0b")
+            return
+
+        res = self.active_result
+        if "paragraph" in res:
+            ans = res.get("corrected_paragraph")
+            if not ans:
+                ans = res.get("paragraph", "")
+            self._copy_with_feedback(ans, getattr(self, "copy_ans_btn", None), "Factual Paragraph Copied!")
+        else:
+            v = res.get("verdict", "UNVERIFIED")
+            if v == "CONTRADICTED" and res.get("right_statement"):
+                ans = res.get("right_statement")
+            else:
+                ans = res.get("claim", "")
+            self._copy_with_feedback(ans, getattr(self, "copy_ans_btn", None), "Factual Statement Copied!")
 
     def _animate_status_pulse(self):
         """Subtle glowing pulse on the engine status pill."""
@@ -1454,6 +1586,27 @@ class TRUVIApp(ctk.CTk):
             text_color=COLOR_TEXT_MUTED
         )
         subtitle.pack(anchor="w", pady=(2, 0))
+
+        # Center: Interactive Dynamic Notification Island (Header-level, 100% visible)
+        self.center_toast_box = ctk.CTkFrame(header, fg_color="transparent")
+        self.center_toast_box.pack(side="left", fill="both", expand=True, padx=14)
+
+        self.dynamic_pill = ctk.CTkFrame(
+            self.center_toast_box,
+            fg_color="#04261a",
+            border_color="#10b981",
+            border_width=1.5,
+            corner_radius=10,
+            height=32
+        )
+        self.dynamic_pill_label = ctk.CTkLabel(
+            self.dynamic_pill,
+            text="",
+            font=ctk.CTkFont(family="SF Pro Display", size=11, weight="bold"),
+            text_color="#34d399"
+        )
+        self.dynamic_pill_label.pack(padx=14, pady=4)
+        # Not packed into center_toast_box initially
 
         # Right: Badges, Test Popup, & Clipboard Auto-Verify Switch
         right_box = ctk.CTkFrame(header, fg_color="transparent")
@@ -1661,6 +1814,36 @@ class TRUVIApp(ctk.CTk):
         )
         self.verify_btn.pack(side="left", padx=(0, 10))
 
+        self.copy_prompt_btn = ctk.CTkButton(
+            btn_row,
+            text="📋 Copy Prompt",
+            height=42,
+            fg_color="#0e1f38",
+            hover_color="#1e3a66",
+            border_color="#2b4c80",
+            border_width=1.2,
+            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
+            text_color="#60a5fa",
+            corner_radius=12,
+            command=self._copy_prompt
+        )
+        self.copy_prompt_btn.pack(side="left", padx=(0, 10))
+
+        self.copy_ans_btn = ctk.CTkButton(
+            btn_row,
+            text="📋 Copy Factual Answer",
+            height=42,
+            fg_color="#064e3b",
+            hover_color="#059669",
+            border_color="#059669",
+            border_width=1.2,
+            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
+            text_color="#34d399",
+            corner_radius=12,
+            command=self._copy_factual_answer
+        )
+        self.copy_ans_btn.pack(side="left", padx=(0, 10))
+
         self.copy_report_btn = ctk.CTkButton(
             btn_row,
             text="📋 Copy Audit Report",
@@ -1668,8 +1851,8 @@ class TRUVIApp(ctk.CTk):
             fg_color="#141d2e",
             hover_color="#22304a",
             border_color="#2b3b55",
-            border_width=1,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1.2,
+            font=ctk.CTkFont(family="SF Pro Display", size=12, weight="bold"),
             text_color="#cbd5e1",
             corner_radius=12,
             command=self._copy_active_report
@@ -1868,6 +2051,7 @@ class TRUVIApp(ctk.CTk):
     # Single Claim Rendering
     # -------------------------------------------------------------------------
     def _render_single_claim_view(self, res: Dict[str, Any]):
+        self.active_result = res
         verdict = res.get("verdict", "UNVERIFIED")
         conf_pct = res.get("confidence_pct", "95.0%")
         conf_val = res.get("confidence", 0.95)
@@ -2060,10 +2244,12 @@ class TRUVIApp(ctk.CTk):
                     height=26,
                     fg_color="#064e3b",
                     hover_color="#047857",
+                    border_color="#059669",
+                    border_width=1,
                     text_color="#34d399",
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    command=lambda s=r_stmt: self._copy_text_to_clipboard(s, "Right Statement Copied!")
+                    font=ctk.CTkFont(size=11, weight="bold")
                 )
+                copy_right_btn.configure(command=lambda s=r_stmt, b=copy_right_btn: self._copy_with_feedback(s, b, "Right Statement Copied!"))
                 copy_right_btn.pack(side="right")
 
             # 1. WHAT PART IS CONTRADICTED
@@ -2259,6 +2445,7 @@ class TRUVIApp(ctk.CTk):
     # Paragraph Rendering
     # -------------------------------------------------------------------------
     def _render_paragraph_view(self, res: Dict[str, Any]):
+        self.active_result = res
         verdict = res.get("overall_verdict", "UNVERIFIED")
         summary = res.get("overall_summary", "")
         advisory = res.get("action_advisory", "")
@@ -2390,10 +2577,12 @@ class TRUVIApp(ctk.CTk):
                 height=26,
                 fg_color="#047857",
                 hover_color="#059669",
+                border_color="#10b981",
+                border_width=1,
                 text_color="#ffffff",
-                font=ctk.CTkFont(size=11, weight="bold"),
-                command=lambda p=corr_para: self._copy_text_to_clipboard(p, "Corrected Paragraph Copied!")
+                font=ctk.CTkFont(size=11, weight="bold")
             )
+            copy_corr_btn.configure(command=lambda p=corr_para, b=copy_corr_btn: self._copy_with_feedback(p, b, "Corrected Paragraph Copied!"))
             copy_corr_btn.pack(side="right")
 
             corr_txt = ctk.CTkLabel(
@@ -2616,14 +2805,16 @@ class TRUVIApp(ctk.CTk):
                         q_row,
                         text="📋 Copy",
                         height=22,
-                        width=55,
+                        width=60,
                         fg_color="#064e3b",
                         hover_color="#059669",
+                        border_color="#059669",
+                        border_width=1,
                         text_color="#ffffff",
                         font=ctk.CTkFont(size=10, weight="bold"),
-                        corner_radius=5,
-                        command=lambda s=r_stmt: self._copy_text_to_clipboard(s, "Right Statement Copied!")
+                        corner_radius=5
                     )
+                    q_copy.configure(command=lambda s=r_stmt, b=q_copy: self._copy_with_feedback(s, b, "Right Statement Copied!"))
                     q_copy.pack(side="right")
             else:
                 rsn_lbl = ctk.CTkLabel(
@@ -2758,11 +2949,13 @@ class TRUVIApp(ctk.CTk):
                     height=24,
                     fg_color="#065f46",
                     hover_color="#047857",
+                    border_color="#059669",
+                    border_width=1,
                     text_color="#ffffff",
                     font=ctk.CTkFont(size=10, weight="bold"),
-                    corner_radius=6,
-                    command=lambda s=r_stmt: self._copy_text_to_clipboard(s, "Right Statement Copied!")
+                    corner_radius=6
                 )
+                cp_btn.configure(command=lambda s=r_stmt, b=cp_btn: self._copy_with_feedback(s, b, "Right Statement Copied!"))
                 cp_btn.pack(side="right")
 
         # 2. Mini 5-Signal Metrics Radar Row
@@ -2813,11 +3006,13 @@ class TRUVIApp(ctk.CTk):
             height=26,
             fg_color="#182740",
             hover_color=COLOR_ACCENT_HOVER,
+            border_color="#2b3e5f",
+            border_width=1,
             text_color="#cbd5e1",
             font=ctk.CTkFont(size=10, weight="bold"),
-            corner_radius=6,
-            command=lambda dt=dossier_text: self._copy_text_to_clipboard(dt, "Forensic Dossier Copied!")
+            corner_radius=6
         )
+        cp_dos_btn.configure(command=lambda dt=dossier_text, b=cp_dos_btn: self._copy_with_feedback(dt, b, "Forensic Dossier Copied!"))
         cp_dos_btn.pack(side="left")
 
         pop_dos_btn = ctk.CTkButton(
@@ -2855,22 +3050,11 @@ class TRUVIApp(ctk.CTk):
         modal = ClaimForensicModal(self, claim_data, claim_number)
         self.open_forensic_modals[claim_number] = modal
 
-    def _copy_text_to_clipboard(self, text: str, success_msg: str = "Copied to Clipboard!"):
+    def _copy_text_to_clipboard(self, text: str, success_msg: str = "Copied to Clipboard!", btn: Optional[ctk.CTkButton] = None):
+        """Guaranteed clipboard copy helper with audio chime, button animation, and Dynamic Island Toast."""
         if not text:
             return
-        clean = text.strip()
-        try:
-            if CLIPBOARD_AVAILABLE:
-                self.last_clipboard_text = clean
-                pyperclip.copy(clean)
-        except Exception:
-            pass
-        try:
-            subprocess.run(["pbcopy"], input=clean.encode("utf-8"), check=False)
-            self.last_clipboard_text = clean
-        except Exception:
-            pass
-        self.show_toast(success_msg, icon="✓", color="#10b981")
+        self._copy_with_feedback(text, btn, success_msg)
 
     # =========================================================================
     # Tab 2: 📊 17-Signal Neural Radar View
@@ -3278,12 +3462,7 @@ class TRUVIApp(ctk.CTk):
             ])
 
         report_md = "\n".join(lines)
-        self._copy_text_to_clipboard(report_md, "Audit Report Copied to Clipboard!")
-        try:
-            self.copy_report_btn.configure(text="✓ Report Copied!", fg_color="#064e3b")
-            self.after(1800, lambda: self.copy_report_btn.configure(text="📋 Copy Audit Report", fg_color="#141d2e"))
-        except Exception:
-            pass
+        self._copy_with_feedback(report_md, getattr(self, "copy_report_btn", None), "Fact-Check Audit Report Copied!")
 
     # =========================================================================
     # Status Bar
